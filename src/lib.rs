@@ -7,8 +7,8 @@
 //! ```rust
 //! use semver::Version;
 //!
-//! #[derive(Debug, Eq, PartialEq, Hash, Clone)]
-//! pub struct WildFlyContainer {
+//! pub struct WildFlyContainer { 
+//!     pub short_version: String,
 //!     pub version: Version,
 //!     pub suffix: String,
 //!     pub repository: String,
@@ -36,7 +36,7 @@ pub static DEVELOPMENT_TAG: &str = "development";
 lazy_static! {
     static ref WILDFLY_DEV: WildFlyContainer = WildFlyContainer::new(Version::new(0, 0, 0), "", "", vec![]);
 
-    /// Static map with all versions from 10 to 35
+    /// Static map with versions from 10 to 35
     pub static ref VERSIONS: BTreeMap<u16, WildFlyContainer> = {
         let mut m = BTreeMap::new();
         // @formatter:off
@@ -80,17 +80,16 @@ pub struct WildFlyContainer {
     identifier: u16,
     port_offset: u16,
 
-    /// The short version which is either `<major>` if `minor == 0` or `<major>.<minor>`
+    /// The short version which is either "`<major>`" if `minor == 0` or "`<major>.<minor>`"
     pub short_version: String,
 
     /// The semantic version
     pub version: Version,
 
-    /// An empty string or a suffix like "Final-jdk21"
+    /// A suffix like "Final-jdk21"
     pub suffix: String,
 
-    /// The container repository ("docker.io/jboss/wildfly" for versions < 23 or
-    /// "docker.io/jboss/wildfly" otherwise)
+    /// The container repository
     pub repository: String,
 
     /// The supported platforms
