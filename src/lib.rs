@@ -1,134 +1,117 @@
+//! A library for managing WildFly container versions deployed at
+//! https://hub.docker.com/r/jboss/wildfly and
+//! https://quay.io/repository/wildfly/wildfly.
+//!
+//! The library contains a struct describing the WildFly container versions
+//!
+//! ```rust
+//! use semver::Version;
+//!
+//! #[derive(Debug, Eq, PartialEq, Hash, Clone)]
+//! pub struct WildFlyContainer {
+//!     pub version: Version,
+//!     pub suffix: String,
+//!     pub repository: String,
+//!     pub platforms: Vec<String>,
+//! }
+//! ```
+//!
+//! and functions to parse version enumerations and ranges
+//!
+//! ```rust
+//! use wildfly_container_versions::WildFlyContainer;
+//! let versions = WildFlyContainer::enumeration("23..26.1,dev,28,10,25,34");
+//! ```
+
 use anyhow::{bail, Result};
 use lazy_static::lazy_static;
 use regex::Regex;
 use semver::Version;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
-use std::fmt;
-use std::fmt::{Display, Formatter};
 
 pub static DEVELOPMENT_VERSION: &str = "dev";
 pub static DEVELOPMENT_TAG: &str = "development";
 
 lazy_static! {
-    static ref WILDFLY_DEV: WildFlyContainer = WildFlyContainer::new(ShortVersion::dev(), Version::new(0, 0, 0), "", "", vec![]);
-    pub static ref VERSIONS: BTreeMap<ShortVersion, WildFlyContainer> = {
+    static ref WILDFLY_DEV: WildFlyContainer = WildFlyContainer::new(Version::new(0, 0, 0), "", "", vec![]);
+
+    /// Static map with all versions from 10 to 35
+    pub static ref VERSIONS: BTreeMap<u16, WildFlyContainer> = {
         let mut m = BTreeMap::new();
         // @formatter:off
-        m.insert(ShortVersion::new(10, 0), WildFlyContainer::new(ShortVersion::new(10, 0), Version::new(10, 0, 0), "Final", "docker.io/jboss/wildfly", vec![]));
-        m.insert(ShortVersion::new(10, 1), WildFlyContainer::new(ShortVersion::new(10, 1), Version::new(10, 1, 0), "Final", "docker.io/jboss/wildfly", vec![]));
-        m.insert(ShortVersion::new(11, 0), WildFlyContainer::new(ShortVersion::new(11, 0), Version::new(11, 0, 0), "Final", "docker.io/jboss/wildfly", vec![]));
-        m.insert(ShortVersion::new(12, 0), WildFlyContainer::new(ShortVersion::new(12, 0), Version::new(12, 0, 0), "Final", "docker.io/jboss/wildfly", vec![]));
-        m.insert(ShortVersion::new(13, 0), WildFlyContainer::new(ShortVersion::new(13, 0), Version::new(13, 0, 0), "Final", "docker.io/jboss/wildfly", vec![]));
-        m.insert(ShortVersion::new(14, 0), WildFlyContainer::new(ShortVersion::new(14, 0), Version::new(14, 0, 1), "Final", "docker.io/jboss/wildfly", vec![]));
-        m.insert(ShortVersion::new(15, 0), WildFlyContainer::new(ShortVersion::new(15, 0), Version::new(15, 0, 1), "Final", "docker.io/jboss/wildfly", vec![]));
-        m.insert(ShortVersion::new(16, 0), WildFlyContainer::new(ShortVersion::new(16, 0), Version::new(16, 0, 0), "Final", "docker.io/jboss/wildfly", vec![]));
-        m.insert(ShortVersion::new(17, 0), WildFlyContainer::new(ShortVersion::new(17, 0), Version::new(17, 0, 1), "Final", "docker.io/jboss/wildfly", vec![]));
-        m.insert(ShortVersion::new(18, 0), WildFlyContainer::new(ShortVersion::new(18, 0), Version::new(18, 0, 1), "Final", "docker.io/jboss/wildfly", vec![]));
-        m.insert(ShortVersion::new(19, 0), WildFlyContainer::new(ShortVersion::new(19, 0), Version::new(19, 0, 0), "Final", "docker.io/jboss/wildfly", vec![]));
-        m.insert(ShortVersion::new(19, 1), WildFlyContainer::new(ShortVersion::new(19, 1), Version::new(19, 1, 0), "Final", "docker.io/jboss/wildfly", vec![]));
-        m.insert(ShortVersion::new(20, 0), WildFlyContainer::new(ShortVersion::new(20, 0), Version::new(20, 0, 1), "Final", "docker.io/jboss/wildfly", vec![]));
-        m.insert(ShortVersion::new(21, 0), WildFlyContainer::new(ShortVersion::new(21, 0), Version::new(21, 0, 2), "Final", "docker.io/jboss/wildfly", vec![]));
-        m.insert(ShortVersion::new(22, 0), WildFlyContainer::new(ShortVersion::new(22, 0), Version::new(22, 0, 1), "Final", "docker.io/jboss/wildfly", vec![]));
-        m.insert(ShortVersion::new(23, 0), WildFlyContainer::new(ShortVersion::new(23, 0), Version::new(23, 0, 2), "Final", "quay.io/wildfly/wildfly", vec![]));
-        m.insert(ShortVersion::new(24, 0), WildFlyContainer::new(ShortVersion::new(24, 0), Version::new(24, 0, 0), "Final", "quay.io/wildfly/wildfly", vec![]));
-        m.insert(ShortVersion::new(25, 0), WildFlyContainer::new(ShortVersion::new(25, 0), Version::new(25, 0, 1), "Final", "quay.io/wildfly/wildfly", vec![]));
-        m.insert(ShortVersion::new(26, 0), WildFlyContainer::new(ShortVersion::new(26, 0), Version::new(26, 0, 1), "Final", "quay.io/wildfly/wildfly", vec![]));
-        m.insert(ShortVersion::new(26, 1), WildFlyContainer::new(ShortVersion::new(26, 1), Version::new(26, 1, 3), "Final-jdk17", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64"]));
-        m.insert(ShortVersion::new(27, 0), WildFlyContainer::new(ShortVersion::new(27, 0), Version::new(27, 0, 1), "Final-jdk19", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64"]));
-        m.insert(ShortVersion::new(28, 0), WildFlyContainer::new(ShortVersion::new(28, 0), Version::new(28, 0, 1), "Final-jdk20", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64"]));
-        m.insert(ShortVersion::new(29, 0), WildFlyContainer::new(ShortVersion::new(29, 0), Version::new(29, 0, 1), "Final-jdk20", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64"]));
-        m.insert(ShortVersion::new(30, 0), WildFlyContainer::new(ShortVersion::new(30, 0), Version::new(30, 0, 1), "Final-jdk20", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64"]));
-        m.insert(ShortVersion::new(31, 0), WildFlyContainer::new(ShortVersion::new(31, 0), Version::new(31, 0, 1), "Final-jdk20", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64"]));
-        m.insert(ShortVersion::new(32, 0), WildFlyContainer::new(ShortVersion::new(32, 0), Version::new(32, 0, 1), "Final-jdk21", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64", "linux/s390x"]));
-        m.insert(ShortVersion::new(33, 0), WildFlyContainer::new(ShortVersion::new(33, 0), Version::new(33, 0, 2), "Final-jdk21", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64", "linux/s390x", "linux/ppc64le"]));
-        m.insert(ShortVersion::new(34, 0), WildFlyContainer::new(ShortVersion::new(34, 0), Version::new(34, 0, 1), "Final-jdk21", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64", "linux/s390x", "linux/ppc64le"]));
-        m.insert(ShortVersion::new(35, 0), WildFlyContainer::new(ShortVersion::new(35, 0), Version::new(35, 0, 1), "Final-jdk21", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64", "linux/s390x", "linux/ppc64le"]));
+        m.insert(identifier(10, 0), WildFlyContainer::new(Version::new(10, 0, 0), "Final", "docker.io/jboss/wildfly", vec![]));
+        m.insert(identifier(10, 1), WildFlyContainer::new(Version::new(10, 1, 0), "Final", "docker.io/jboss/wildfly", vec![]));
+        m.insert(identifier(11, 0), WildFlyContainer::new(Version::new(11, 0, 0), "Final", "docker.io/jboss/wildfly", vec![]));
+        m.insert(identifier(12, 0), WildFlyContainer::new(Version::new(12, 0, 0), "Final", "docker.io/jboss/wildfly", vec![]));
+        m.insert(identifier(13, 0), WildFlyContainer::new(Version::new(13, 0, 0), "Final", "docker.io/jboss/wildfly", vec![]));
+        m.insert(identifier(14, 0), WildFlyContainer::new(Version::new(14, 0, 1), "Final", "docker.io/jboss/wildfly", vec![]));
+        m.insert(identifier(15, 0), WildFlyContainer::new(Version::new(15, 0, 1), "Final", "docker.io/jboss/wildfly", vec![]));
+        m.insert(identifier(16, 0), WildFlyContainer::new(Version::new(16, 0, 0), "Final", "docker.io/jboss/wildfly", vec![]));
+        m.insert(identifier(17, 0), WildFlyContainer::new(Version::new(17, 0, 1), "Final", "docker.io/jboss/wildfly", vec![]));
+        m.insert(identifier(18, 0), WildFlyContainer::new(Version::new(18, 0, 1), "Final", "docker.io/jboss/wildfly", vec![]));
+        m.insert(identifier(19, 0), WildFlyContainer::new(Version::new(19, 0, 0), "Final", "docker.io/jboss/wildfly", vec![]));
+        m.insert(identifier(19, 1), WildFlyContainer::new(Version::new(19, 1, 0), "Final", "docker.io/jboss/wildfly", vec![]));
+        m.insert(identifier(20, 0), WildFlyContainer::new(Version::new(20, 0, 1), "Final", "docker.io/jboss/wildfly", vec![]));
+        m.insert(identifier(21, 0), WildFlyContainer::new(Version::new(21, 0, 2), "Final", "docker.io/jboss/wildfly", vec![]));
+        m.insert(identifier(22, 0), WildFlyContainer::new(Version::new(22, 0, 1), "Final", "docker.io/jboss/wildfly", vec![]));
+        m.insert(identifier(23, 0), WildFlyContainer::new(Version::new(23, 0, 2), "Final", "quay.io/wildfly/wildfly", vec![]));
+        m.insert(identifier(24, 0), WildFlyContainer::new(Version::new(24, 0, 0), "Final", "quay.io/wildfly/wildfly", vec![]));
+        m.insert(identifier(25, 0), WildFlyContainer::new(Version::new(25, 0, 1), "Final", "quay.io/wildfly/wildfly", vec![]));
+        m.insert(identifier(26, 0), WildFlyContainer::new(Version::new(26, 0, 1), "Final", "quay.io/wildfly/wildfly", vec![]));
+        m.insert(identifier(26, 1), WildFlyContainer::new(Version::new(26, 1, 3), "Final-jdk17", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64"]));
+        m.insert(identifier(27, 0), WildFlyContainer::new(Version::new(27, 0, 1), "Final-jdk19", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64"]));
+        m.insert(identifier(28, 0), WildFlyContainer::new(Version::new(28, 0, 1), "Final-jdk20", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64"]));
+        m.insert(identifier(29, 0), WildFlyContainer::new(Version::new(29, 0, 1), "Final-jdk20", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64"]));
+        m.insert(identifier(30, 0), WildFlyContainer::new(Version::new(30, 0, 1), "Final-jdk20", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64"]));
+        m.insert(identifier(31, 0), WildFlyContainer::new(Version::new(31, 0, 1), "Final-jdk20", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64"]));
+        m.insert(identifier(32, 0), WildFlyContainer::new(Version::new(32, 0, 1), "Final-jdk21", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64", "linux/s390x"]));
+        m.insert(identifier(33, 0), WildFlyContainer::new(Version::new(33, 0, 2), "Final-jdk21", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64", "linux/s390x", "linux/ppc64le"]));
+        m.insert(identifier(34, 0), WildFlyContainer::new(Version::new(34, 0, 1), "Final-jdk21", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64", "linux/s390x", "linux/ppc64le"]));
+        m.insert(identifier(35, 0), WildFlyContainer::new(Version::new(35, 0, 1), "Final-jdk21", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64", "linux/s390x", "linux/ppc64le"]));
         // @formatter:on
         m
     };
 }
 
-// ------------------------------------------------------ short version
-
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
-pub struct ShortVersion {
-    pub major: u16,
-    pub minor: u16,
-    pub version: u16,
-}
-
-impl ShortVersion {
-    pub fn new(major: u16, minor: u16) -> Self {
-        Self {
-            major,
-            minor,
-            version: major * 100 + minor * 10,
-        }
-    }
-
-    pub fn port(&self) -> u16 {
-        self.major * 10 + self.minor
-    }
-
-    fn dev() -> Self {
-        Self {
-            major: 0,
-            minor: 0,
-            version: 0,
-        }
-    }
-
-    fn is_dev(&self) -> bool {
-        self.version == 0
-    }
-}
-
-impl Ord for ShortVersion {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.version.cmp(&other.version)
-    }
-}
-
-impl PartialOrd for ShortVersion {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Display for ShortVersion {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        if self.is_dev() {
-            write!(f, "dev")
-        } else if self.minor == 0 {
-            write!(f, "{}", self.major)
-        } else {
-            write!(f, "{}.{}", self.major, self.minor)
-        }
-    }
-}
-
-// ------------------------------------------------------ wildfly
-
+/// Describes a WildFly container version
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub struct WildFlyContainer {
-    pub short_version: ShortVersion,
+    identifier: u16,
+    port_offset: u16,
+
+    /// The short version which is either `<major>` if `minor == 0` or `<major>.<minor>`
+    pub short_version: String,
+
+    /// The semantic version
     pub version: Version,
+
+    /// An empty string or a suffix like "Final-jdk21"
     pub suffix: String,
+
+    /// The container repository ("docker.io/jboss/wildfly" for versions < 23 or
+    /// "docker.io/jboss/wildfly" otherwise)
     pub repository: String,
+
+    /// The supported platforms
     pub platforms: Vec<String>,
 }
 
 impl WildFlyContainer {
     pub fn new(
-        short_version: ShortVersion,
         version: Version,
         suffix: &str,
         source_repository: &str,
         platforms: Vec<&str>,
     ) -> Self {
         Self {
-            short_version,
+            identifier: identifier(version.major as u16, version.minor as u16),
+            port_offset: (version.major * 10 + version.minor) as u16,
+            short_version: if version.minor == 0 {
+                format!("{}", version.major)
+            } else {
+                format!("{}.{}", version.major, version.minor)
+            },
             version,
             suffix: suffix.to_string(),
             repository: source_repository.to_string(),
@@ -145,18 +128,19 @@ impl WildFlyContainer {
     }
 
     pub fn is_dev(&self) -> bool {
-        self.short_version.is_dev()
+        self.identifier == 0
     }
 
     pub fn http_port(&self) -> u16 {
-        8000 + self.short_version.port()
+        8000 + self.port_offset
     }
 
     pub fn management_port(&self) -> u16 {
-        9000 + self.short_version.port()
+        9000 + self.port_offset
     }
 
-    // "10,23..26,28,34,dev"
+    /// Turns an enumeration of WildFly versions like "10,23..26,28,34,dev"
+    /// into an array of [WildFlyContainer]s.
     pub fn enumeration(enumeration: &str) -> Result<Vec<WildFlyContainer>> {
         let mut result: Vec<WildFlyContainer> = vec![];
         let mut errors: Vec<String> = vec![];
@@ -174,7 +158,7 @@ impl WildFlyContainer {
             }
         });
         if errors.is_empty() {
-            result.sort_by(|a, b| a.short_version.cmp(&b.short_version));
+            result.sort_by(|a, b| a.identifier.cmp(&b.identifier));
             result.dedup();
             Ok(result)
         } else if errors.len() > 1 {
@@ -184,7 +168,8 @@ impl WildFlyContainer {
         }
     }
 
-    // "20.1..29" or "25.." or "..26.1" or "..", but not "..dev" or "dev.."
+    /// Turns a range of WildFly versions like "20.1..29" or "25.." or "..26.1" or "..",
+    /// but not "..dev" or "dev.." into an array of [WildFlyContainer]s.
     pub fn range(range: &str) -> Result<Vec<WildFlyContainer>> {
         if range.contains("..") {
             let parts = range.split("..").collect::<Vec<&str>>();
@@ -199,16 +184,15 @@ impl WildFlyContainer {
                         _ => Self::lookup(parts[1]).ok(),
                     };
                     match (from, to) {
-                        (Some(f), Some(t)) => match f.short_version.cmp(&t.short_version) {
+                        (Some(f), Some(t)) => match f.identifier.cmp(&t.identifier) {
                             Ordering::Equal => Ok(vec![f]),
                             Ordering::Less => Ok(VERSIONS
-                                .range(f.short_version..=t.short_version)
+                                .range(f.identifier..=t.identifier)
                                 .map(|(_, w)| w.clone())
                                 .collect()),
-                            Ordering::Greater => bail!(format!(
-                                "{} is greater than {}",
-                                f.short_version, t.short_version
-                            )),
+                            Ordering::Greater => {
+                                bail!(format!("{} is greater than {}", f.identifier, t.identifier))
+                            }
                         },
                         (None, _) => {
                             bail!(format!("from '{}' is not valid", parts[0]))
@@ -228,7 +212,7 @@ impl WildFlyContainer {
         }
     }
 
-    // "dev" or "22" or "26.1"
+    /// Looks up a single [WildFlyContainer] version like "dev" or "22" or "26.1".
     pub fn lookup(version: &str) -> Result<WildFlyContainer> {
         if version == "dev" {
             Ok(WILDFLY_DEV.clone())
@@ -240,7 +224,7 @@ impl WildFlyContainer {
                     let minor: u16 = c
                         .name("minor")
                         .map_or(0, |m| m.as_str().parse().unwrap_or(0));
-                    match VERSIONS.get(&ShortVersion::new(major, minor)) {
+                    match VERSIONS.get(&identifier(major, minor)) {
                         Some(wildfly) => Ok(wildfly.clone()),
                         None => bail!(format!("unknown version {}", version)),
                     }
@@ -253,7 +237,7 @@ impl WildFlyContainer {
 
 impl Ord for WildFlyContainer {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.short_version.cmp(&other.short_version)
+        self.identifier.cmp(&other.identifier)
     }
 }
 
@@ -261,6 +245,10 @@ impl PartialOrd for WildFlyContainer {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
+}
+
+fn identifier(major: u16, minor: u16) -> u16 {
+    major * 100 + minor * 10
 }
 
 // ------------------------------------------------------ tests
@@ -323,35 +311,35 @@ mod wildfly_tests {
     fn range_from_to() {
         if let Ok(interval) = WildFlyContainer::range("20..20") {
             assert_eq!(1, interval.len());
-            assert_eq!(2000, interval[0].short_version.version);
+            assert_eq!(2000, interval[0].identifier);
         } else {
             panic!("Failed");
         }
         if let Ok(interval) = WildFlyContainer::range("10..10.1") {
             assert_eq!(2, interval.len());
-            assert_eq!(1000, interval[0].short_version.version);
-            assert_eq!(1010, interval.last().unwrap().short_version.version)
+            assert_eq!(1000, interval[0].identifier);
+            assert_eq!(1010, interval.last().unwrap().identifier)
         } else {
             panic!("Failed");
         }
         if let Ok(interval) = WildFlyContainer::range("19.1..20") {
             assert_eq!(2, interval.len());
-            assert_eq!(1910, interval[0].short_version.version);
-            assert_eq!(2000, interval.last().unwrap().short_version.version)
+            assert_eq!(1910, interval[0].identifier);
+            assert_eq!(2000, interval.last().unwrap().identifier)
         } else {
             panic!("Failed");
         }
         if let Ok(interval) = WildFlyContainer::range("19.1..26.1") {
             assert_eq!(9, interval.len());
-            assert_eq!(1910, interval[0].short_version.version);
-            assert_eq!(2610, interval.last().unwrap().short_version.version)
+            assert_eq!(1910, interval[0].identifier);
+            assert_eq!(2610, interval.last().unwrap().identifier)
         } else {
             panic!("Failed");
         }
         if let Ok(interval) = WildFlyContainer::range("20..30") {
             assert_eq!(12, interval.len());
-            assert_eq!(2000, interval[0].short_version.version);
-            assert_eq!(3000, interval.last().unwrap().short_version.version)
+            assert_eq!(2000, interval[0].identifier);
+            assert_eq!(3000, interval.last().unwrap().identifier)
         } else {
             panic!("Failed");
         }
@@ -361,22 +349,23 @@ mod wildfly_tests {
     fn range_from() {
         if let Ok(interval) = WildFlyContainer::range("26.1..") {
             assert_eq!(10, interval.len());
-            assert_eq!(2610, interval[0].short_version.version);
-            assert_eq!(3500, interval.last().unwrap().short_version.version)
+            assert_eq!(2610, interval[0].identifier);
+            assert_eq!(3500, interval.last().unwrap().identifier)
         } else {
             panic!("Failed");
         }
         if let Ok(interval) = WildFlyContainer::range("30..") {
             assert_eq!(6, interval.len());
-            assert_eq!(3000, interval[0].short_version.version);
-            assert_eq!(3500, interval.last().unwrap().short_version.version)
+            assert_eq!(3000, interval[0].identifier);
+            assert_eq!(3500, interval.last().unwrap().identifier)
         } else {
             panic!("Failed");
         }
-        let last = VERSIONS.last_key_value().unwrap().0;
-        if let Ok(interval) = WildFlyContainer::range(format!("{}..", last).as_str()) {
+        let last = VERSIONS.last_key_value().unwrap().1;
+        if let Ok(interval) = WildFlyContainer::range(format!("{}..", last.short_version).as_str())
+        {
             assert_eq!(1, interval.len());
-            assert_eq!(*last, interval[0].short_version);
+            assert_eq!(last.identifier, interval[0].identifier);
         } else {
             panic!("Failed");
         }
@@ -386,21 +375,21 @@ mod wildfly_tests {
     fn range_to() {
         if let Ok(interval) = WildFlyContainer::range("..10") {
             assert_eq!(1, interval.len());
-            assert_eq!(1000, interval[0].short_version.version);
+            assert_eq!(1000, interval[0].identifier);
         } else {
             panic!("Failed");
         }
         if let Ok(interval) = WildFlyContainer::range("..10.1") {
             assert_eq!(2, interval.len());
-            assert_eq!(1000, interval[0].short_version.version);
-            assert_eq!(1010, interval.last().unwrap().short_version.version)
+            assert_eq!(1000, interval[0].identifier);
+            assert_eq!(1010, interval.last().unwrap().identifier)
         } else {
             panic!("Failed");
         }
         if let Ok(interval) = WildFlyContainer::range("..20") {
             assert_eq!(13, interval.len());
-            assert_eq!(1000, interval[0].short_version.version);
-            assert_eq!(2000, interval.last().unwrap().short_version.version)
+            assert_eq!(1000, interval[0].identifier);
+            assert_eq!(2000, interval.last().unwrap().identifier)
         } else {
             panic!("Failed");
         }
@@ -412,11 +401,11 @@ mod wildfly_tests {
             assert_eq!(VERSIONS.len(), interval.len());
             assert_eq!(
                 *(VERSIONS.first_key_value().unwrap().0),
-                interval[0].short_version
+                interval[0].identifier
             );
             assert_eq!(
                 *(VERSIONS.last_key_value().unwrap().0),
-                interval.last().unwrap().short_version
+                interval.last().unwrap().identifier
             );
         } else {
             panic!("Failed");
@@ -436,14 +425,14 @@ mod wildfly_tests {
         if let Ok(range) = WildFlyContainer::enumeration("23..26.1,dev,28,10,25,34") {
             assert_eq!(9, range.len());
             assert!(range[0].is_dev());
-            assert_eq!(1000, range[1].short_version.version);
-            assert_eq!(2300, range[2].short_version.version);
-            assert_eq!(2400, range[3].short_version.version);
-            assert_eq!(2500, range[4].short_version.version);
-            assert_eq!(2600, range[5].short_version.version);
-            assert_eq!(2610, range[6].short_version.version);
-            assert_eq!(2800, range[7].short_version.version);
-            assert_eq!(3400, range[8].short_version.version);
+            assert_eq!(1000, range[1].identifier);
+            assert_eq!(2300, range[2].identifier);
+            assert_eq!(2400, range[3].identifier);
+            assert_eq!(2500, range[4].identifier);
+            assert_eq!(2600, range[5].identifier);
+            assert_eq!(2610, range[6].identifier);
+            assert_eq!(2800, range[7].identifier);
+            assert_eq!(3400, range[8].identifier);
         } else {
             panic!("Failed");
         }
