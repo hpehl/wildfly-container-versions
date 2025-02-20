@@ -7,7 +7,7 @@
 //! ```rust
 //! use semver::Version;
 //!
-//! pub struct WildFlyContainer { 
+//! pub struct WildFlyContainer {
 //!     pub short_version: String,
 //!     pub version: Version,
 //!     pub suffix: String,
