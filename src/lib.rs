@@ -1,27 +1,8 @@
 //! A library for managing WildFly container versions deployed at
-//! https://hub.docker.com/r/jboss/wildfly and
-//! https://quay.io/repository/wildfly/wildfly.
+//! https://hub.docker.com/r/jboss/wildfly and https://quay.io/repository/wildfly/wildfly.
 //!
 //! The library contains a struct describing the WildFly container versions
-//!
-//! ```rust
-//! use semver::Version;
-//!
-//! pub struct WildFlyContainer {
-//!     pub short_version: String,
-//!     pub version: Version,
-//!     pub suffix: String,
-//!     pub repository: String,
-//!     pub platforms: Vec<String>,
-//! }
-//! ```
-//!
-//! and functions to parse version enumerations and ranges
-//!
-//! ```rust
-//! use wildfly_container_versions::WildFlyContainer;
-//! let versions = WildFlyContainer::enumeration("23..26.1,dev,28,10,25,34");
-//! ```
+//! and functions to parse version enumerations and ranges.
 
 use anyhow::{bail, Result};
 use lazy_static::lazy_static;
@@ -80,7 +61,7 @@ pub struct WildFlyContainer {
     identifier: u16,
     port_offset: u16,
 
-    /// The short version which is either "`<major>`" if `minor == 0` or "`<major>.<minor>`"
+    /// The short version as "`<major><minor>`"
     pub short_version: String,
 
     /// The semantic version
@@ -106,11 +87,7 @@ impl WildFlyContainer {
         Self {
             identifier: identifier(version.major as u16, version.minor as u16),
             port_offset: (version.major * 10 + version.minor) as u16,
-            short_version: if version.minor == 0 {
-                format!("{}", version.major)
-            } else {
-                format!("{}.{}", version.major, version.minor)
-            },
+            short_version: (version.major * 10 + version.minor).to_string(),
             version,
             suffix: suffix.to_string(),
             repository: source_repository.to_string(),
@@ -118,7 +95,7 @@ impl WildFlyContainer {
         }
     }
 
-    pub fn base_image(&self) -> String {
+    pub fn image_name(&self) -> String {
         if self.is_dev() {
             "https://github.com/wildfly/wildfly.git".to_string()
         } else {
