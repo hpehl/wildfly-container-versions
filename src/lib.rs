@@ -60,9 +60,7 @@ lazy_static! {
 pub struct WildFlyContainer {
     identifier: u16,
     port_offset: u16,
-
-    /// The short version as "`<major><minor>`"
-    pub short_version: String,
+    short_version: String,
 
     /// The semantic version
     pub version: Version,
@@ -93,6 +91,11 @@ impl WildFlyContainer {
             repository: source_repository.to_string(),
             platforms: platforms.iter().map(|s| s.to_string()).collect(),
         }
+    }
+
+    /// The short version as "`<major>.<minor>`"
+    pub fn short_version(&self) -> String {
+        format!("{}.{}", self.version.major, self.version.minor)
     }
 
     pub fn image_name(&self) -> String {
