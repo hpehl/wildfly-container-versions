@@ -98,6 +98,11 @@ impl WildFlyContainer {
         format!("{}.{}", self.version.major, self.version.minor)
     }
 
+    /// The short version as "`<major><minor>`"
+    pub fn short_version_id(&self) -> String {
+        format!("{}.{}", self.version.major, self.version.minor)
+    }
+
     pub fn image_name(&self) -> String {
         if self.is_dev() {
             "https://github.com/wildfly/wildfly.git".to_string()
