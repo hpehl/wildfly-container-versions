@@ -8,9 +8,10 @@ The library contains a struct describing the WildFly container versions
 ```rust
 use semver::Version;
 
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub struct WildFlyContainer {
-    pub short_version: String,
     pub version: Version,
+    pub core_version: Version,
     pub suffix: String,
     pub repository: String,
     pub platforms: Vec<String>,
