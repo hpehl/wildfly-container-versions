@@ -58,12 +58,16 @@ lazy_static! {
 /// Describes a WildFly container version
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub struct WildFlyContainer {
-    identifier: u16,
     port_offset: u16,
-    short_version: String,
+
+    /// A unique identifier `<major><minor>`
+    pub identifier: u16,
 
     /// The semantic version
     pub version: Version,
+
+    /// The short version as "`<major>.<minor>`"
+    pub short_version: String,
 
     /// The WildFly core version
     pub core_version: Version,
@@ -89,23 +93,13 @@ impl WildFlyContainer {
         Self {
             identifier: identifier(version.major as u16, version.minor as u16),
             port_offset: (version.major * 10 + version.minor) as u16,
-            short_version: (version.major * 10 + version.minor).to_string(),
+            short_version: format!("{}.{}", version.major, version.minor),
             version,
             core_version,
             suffix: suffix.to_string(),
             repository: source_repository.to_string(),
             platforms: platforms.iter().map(|s| s.to_string()).collect(),
         }
-    }
-
-    /// The short version as "`<major>.<minor>`"
-    pub fn short_version(&self) -> String {
-        format!("{}.{}", self.version.major, self.version.minor)
-    }
-
-    /// The short version as "`<major><minor>`"
-    pub fn short_version_id(&self) -> String {
-        format!("{}{}", self.version.major, self.version.minor)
     }
 
     pub fn image_name(&self) -> String {
@@ -140,7 +134,7 @@ impl WildFlyContainer {
                     Err(e) => errors.push(e.to_string()),
                 }
             } else {
-                match Self::lookup(segment) {
+                match Self::lookup_by_short_version(segment) {
                     Ok(w) => result.push(w),
                     Err(e) => errors.push(e.to_string()),
                 }
@@ -166,11 +160,11 @@ impl WildFlyContainer {
                 if !(parts[0] == DEVELOPMENT_VERSION || parts[1] == DEVELOPMENT_TAG) {
                     let from = match parts[0] {
                         "" => Some(VERSIONS.first_key_value().unwrap().1.clone()),
-                        _ => Self::lookup(parts[0]).ok(),
+                        _ => Self::lookup_by_short_version(parts[0]).ok(),
                     };
                     let to = match parts[1] {
                         "" => Some(VERSIONS.last_key_value().unwrap().1.clone()),
-                        _ => Self::lookup(parts[1]).ok(),
+                        _ => Self::lookup_by_short_version(parts[1]).ok(),
                     };
                     match (from, to) {
                         (Some(f), Some(t)) => match f.identifier.cmp(&t.identifier) {
@@ -202,12 +196,12 @@ impl WildFlyContainer {
     }
 
     /// Looks up a single [WildFlyContainer] version like "dev" or "22" or "26.1".
-    pub fn lookup(version: &str) -> Result<WildFlyContainer> {
-        if version == "dev" {
+    pub fn lookup_by_short_version(short_version: &str) -> Result<WildFlyContainer> {
+        if short_version == "dev" {
             Ok(WILDFLY_DEV.clone())
         } else {
             let re = Regex::new(r"^(?<major>[0-9]{2})\.?(?<minor>[0-9])?$")?;
-            match re.captures(version) {
+            match re.captures(short_version) {
                 Some(c) => {
                     let major: u16 = c["major"].parse()?;
                     let minor: u16 = c
@@ -215,11 +209,18 @@ impl WildFlyContainer {
                         .map_or(0, |m| m.as_str().parse().unwrap_or(0));
                     match VERSIONS.get(&identifier(major, minor)) {
                         Some(wildfly) => Ok(wildfly.clone()),
-                        None => bail!(format!("unknown version {}", version)),
+                        None => bail!(format!("unknown version {}", short_version)),
                     }
                 }
-                None => bail!(format!("invalid version '{}'", version)),
+                None => bail!(format!("invalid version '{}'", short_version)),
             }
+        }
+    }
+
+    pub fn lookup_by_identifier(identifier: u16) -> Result<WildFlyContainer> {
+        match VERSIONS.get(&identifier) {
+            Some(wildfly) => Ok(wildfly.clone()),
+            None => bail!(format!("unknown version {}", identifier)),
         }
     }
 }
@@ -237,7 +238,7 @@ impl PartialOrd for WildFlyContainer {
 }
 
 fn identifier(major: u16, minor: u16) -> u16 {
-    major * 100 + minor * 10
+    major * 10 + minor
 }
 
 // ------------------------------------------------------ tests
@@ -248,35 +249,35 @@ mod wildfly_tests {
 
     #[test]
     fn invalid_lookup() {
-        assert!(WildFlyContainer::lookup("").is_err());
-        assert!(WildFlyContainer::lookup("  ").is_err());
-        assert!(WildFlyContainer::lookup("foo").is_err());
-        assert!(WildFlyContainer::lookup(".").is_err());
-        assert!(WildFlyContainer::lookup("a.b").is_err());
-        assert!(WildFlyContainer::lookup("0").is_err());
-        assert!(WildFlyContainer::lookup("9").is_err());
-        assert!(WildFlyContainer::lookup("99").is_err());
-        assert!(WildFlyContainer::lookup("123").is_err());
-        assert!(WildFlyContainer::lookup("1.2.3").is_err());
-        assert!(WildFlyContainer::lookup("0.").is_err());
-        assert!(WildFlyContainer::lookup(".0").is_err());
-        assert!(WildFlyContainer::lookup("9.").is_err());
-        assert!(WildFlyContainer::lookup(".9").is_err());
-        assert!(WildFlyContainer::lookup(".123").is_err());
-        assert!(WildFlyContainer::lookup("123.").is_err());
-        assert!(WildFlyContainer::lookup("1.1").is_err());
-        assert!(WildFlyContainer::lookup("10.10").is_err());
-        assert!(WildFlyContainer::lookup("99").is_err());
+        assert!(WildFlyContainer::lookup_by_short_version("").is_err());
+        assert!(WildFlyContainer::lookup_by_short_version("  ").is_err());
+        assert!(WildFlyContainer::lookup_by_short_version("foo").is_err());
+        assert!(WildFlyContainer::lookup_by_short_version(".").is_err());
+        assert!(WildFlyContainer::lookup_by_short_version("a.b").is_err());
+        assert!(WildFlyContainer::lookup_by_short_version("0").is_err());
+        assert!(WildFlyContainer::lookup_by_short_version("9").is_err());
+        assert!(WildFlyContainer::lookup_by_short_version("99").is_err());
+        assert!(WildFlyContainer::lookup_by_short_version("123").is_err());
+        assert!(WildFlyContainer::lookup_by_short_version("1.2.3").is_err());
+        assert!(WildFlyContainer::lookup_by_short_version("0.").is_err());
+        assert!(WildFlyContainer::lookup_by_short_version(".0").is_err());
+        assert!(WildFlyContainer::lookup_by_short_version("9.").is_err());
+        assert!(WildFlyContainer::lookup_by_short_version(".9").is_err());
+        assert!(WildFlyContainer::lookup_by_short_version(".123").is_err());
+        assert!(WildFlyContainer::lookup_by_short_version("123.").is_err());
+        assert!(WildFlyContainer::lookup_by_short_version("1.1").is_err());
+        assert!(WildFlyContainer::lookup_by_short_version("10.10").is_err());
+        assert!(WildFlyContainer::lookup_by_short_version("99").is_err());
     }
 
     #[test]
     fn lookup() {
-        assert!(WildFlyContainer::lookup("dev").is_ok());
-        assert!(WildFlyContainer::lookup("10").is_ok());
-        assert!(WildFlyContainer::lookup("25").is_ok());
-        assert!(WildFlyContainer::lookup("25.0").is_ok());
-        assert!(WildFlyContainer::lookup("26.1").is_ok());
-        assert!(WildFlyContainer::lookup("34").is_ok());
+        assert!(WildFlyContainer::lookup_by_short_version("dev").is_ok());
+        assert!(WildFlyContainer::lookup_by_short_version("10").is_ok());
+        assert!(WildFlyContainer::lookup_by_short_version("25").is_ok());
+        assert!(WildFlyContainer::lookup_by_short_version("25.0").is_ok());
+        assert!(WildFlyContainer::lookup_by_short_version("26.1").is_ok());
+        assert!(WildFlyContainer::lookup_by_short_version("34").is_ok());
     }
 
     #[test]
@@ -300,35 +301,35 @@ mod wildfly_tests {
     fn range_from_to() {
         if let Ok(interval) = WildFlyContainer::range("20..20") {
             assert_eq!(1, interval.len());
-            assert_eq!(2000, interval[0].identifier);
+            assert_eq!(200, interval[0].identifier);
         } else {
             panic!("Failed");
         }
         if let Ok(interval) = WildFlyContainer::range("10..10.1") {
             assert_eq!(2, interval.len());
-            assert_eq!(1000, interval[0].identifier);
-            assert_eq!(1010, interval.last().unwrap().identifier)
+            assert_eq!(100, interval[0].identifier);
+            assert_eq!(101, interval.last().unwrap().identifier)
         } else {
             panic!("Failed");
         }
         if let Ok(interval) = WildFlyContainer::range("19.1..20") {
             assert_eq!(2, interval.len());
-            assert_eq!(1910, interval[0].identifier);
-            assert_eq!(2000, interval.last().unwrap().identifier)
+            assert_eq!(191, interval[0].identifier);
+            assert_eq!(200, interval.last().unwrap().identifier)
         } else {
             panic!("Failed");
         }
         if let Ok(interval) = WildFlyContainer::range("19.1..26.1") {
             assert_eq!(9, interval.len());
-            assert_eq!(1910, interval[0].identifier);
-            assert_eq!(2610, interval.last().unwrap().identifier)
+            assert_eq!(191, interval[0].identifier);
+            assert_eq!(261, interval.last().unwrap().identifier)
         } else {
             panic!("Failed");
         }
         if let Ok(interval) = WildFlyContainer::range("20..30") {
             assert_eq!(12, interval.len());
-            assert_eq!(2000, interval[0].identifier);
-            assert_eq!(3000, interval.last().unwrap().identifier)
+            assert_eq!(200, interval[0].identifier);
+            assert_eq!(300, interval.last().unwrap().identifier)
         } else {
             panic!("Failed");
         }
@@ -338,15 +339,15 @@ mod wildfly_tests {
     fn range_from() {
         if let Ok(interval) = WildFlyContainer::range("26.1..") {
             assert_eq!(10, interval.len());
-            assert_eq!(2610, interval[0].identifier);
-            assert_eq!(3500, interval.last().unwrap().identifier)
+            assert_eq!(261, interval[0].identifier);
+            assert_eq!(350, interval.last().unwrap().identifier)
         } else {
             panic!("Failed");
         }
         if let Ok(interval) = WildFlyContainer::range("30..") {
             assert_eq!(6, interval.len());
-            assert_eq!(3000, interval[0].identifier);
-            assert_eq!(3500, interval.last().unwrap().identifier)
+            assert_eq!(300, interval[0].identifier);
+            assert_eq!(350, interval.last().unwrap().identifier)
         } else {
             panic!("Failed");
         }
@@ -364,21 +365,21 @@ mod wildfly_tests {
     fn range_to() {
         if let Ok(interval) = WildFlyContainer::range("..10") {
             assert_eq!(1, interval.len());
-            assert_eq!(1000, interval[0].identifier);
+            assert_eq!(100, interval[0].identifier);
         } else {
             panic!("Failed");
         }
         if let Ok(interval) = WildFlyContainer::range("..10.1") {
             assert_eq!(2, interval.len());
-            assert_eq!(1000, interval[0].identifier);
-            assert_eq!(1010, interval.last().unwrap().identifier)
+            assert_eq!(100, interval[0].identifier);
+            assert_eq!(101, interval.last().unwrap().identifier)
         } else {
             panic!("Failed");
         }
         if let Ok(interval) = WildFlyContainer::range("..20") {
             assert_eq!(13, interval.len());
-            assert_eq!(1000, interval[0].identifier);
-            assert_eq!(2000, interval.last().unwrap().identifier)
+            assert_eq!(100, interval[0].identifier);
+            assert_eq!(200, interval.last().unwrap().identifier)
         } else {
             panic!("Failed");
         }
@@ -414,14 +415,14 @@ mod wildfly_tests {
         if let Ok(range) = WildFlyContainer::enumeration("23..26.1,dev,28,10,25,34") {
             assert_eq!(9, range.len());
             assert!(range[0].is_dev());
-            assert_eq!(1000, range[1].identifier);
-            assert_eq!(2300, range[2].identifier);
-            assert_eq!(2400, range[3].identifier);
-            assert_eq!(2500, range[4].identifier);
-            assert_eq!(2600, range[5].identifier);
-            assert_eq!(2610, range[6].identifier);
-            assert_eq!(2800, range[7].identifier);
-            assert_eq!(3400, range[8].identifier);
+            assert_eq!(100, range[1].identifier);
+            assert_eq!(230, range[2].identifier);
+            assert_eq!(240, range[3].identifier);
+            assert_eq!(250, range[4].identifier);
+            assert_eq!(260, range[5].identifier);
+            assert_eq!(261, range[6].identifier);
+            assert_eq!(280, range[7].identifier);
+            assert_eq!(340, range[8].identifier);
         } else {
             panic!("Failed");
         }
