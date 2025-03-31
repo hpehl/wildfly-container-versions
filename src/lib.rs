@@ -472,19 +472,19 @@ mod wildfly_tests {
         assert_eq!(2, interval.len());
         assert_eq!(200, interval[0].identifier);
         let interval = WildFlyContainer::range("3x10..10.1").expect("10..10.1");
-        assert_eq!(3*2, interval.len());
+        assert_eq!(3 * 2, interval.len());
         assert_eq!(100, interval[0].identifier);
         assert_eq!(101, interval.last().unwrap().identifier);
         let interval = WildFlyContainer::range("4x19.1..20").expect("19.1..20");
-        assert_eq!(4*2, interval.len());
+        assert_eq!(4 * 2, interval.len());
         assert_eq!(191, interval[0].identifier);
         assert_eq!(200, interval.last().unwrap().identifier);
         let interval = WildFlyContainer::range("5x19.1..26.1").expect("19.1..26.1");
-        assert_eq!(5*9, interval.len());
+        assert_eq!(5 * 9, interval.len());
         assert_eq!(191, interval[0].identifier);
         assert_eq!(261, interval.last().unwrap().identifier);
         let interval = WildFlyContainer::range("6x20..30").expect("20..30");
-        assert_eq!(6*12, interval.len());
+        assert_eq!(6 * 12, interval.len());
         assert_eq!(200, interval[0].identifier);
         assert_eq!(300, interval.last().unwrap().identifier);
     }
