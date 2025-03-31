@@ -122,7 +122,7 @@ impl WildFlyContainer {
         9000 + self.port_offset
     }
 
-    /// Turns an enumeration of WildFly versions like "10,23..26,28,34,dev"
+    /// Turns an enumeration of WildFly versions like "3x10,23..26,5x28,34,dev"
     /// into an array of [WildFlyContainer]s.
     pub fn enumeration(enumeration: &str) -> Result<Vec<WildFlyContainer>> {
         let mut result: Vec<WildFlyContainer> = vec![];
@@ -134,8 +134,8 @@ impl WildFlyContainer {
                     Err(e) => errors.push(e.to_string()),
                 }
             } else {
-                match Self::lookup_by_short_version(segment) {
-                    Ok(w) => result.push(w),
+                match Self::version(segment) {
+                    Ok(w) => result.extend(w),
                     Err(e) => errors.push(e.to_string()),
                 }
             }
@@ -151,52 +151,86 @@ impl WildFlyContainer {
         }
     }
 
-    /// Turns a range of WildFly versions like "20.1..29" or "25.." or "..26.1" or "..",
+    /// Turns a range of WildFly versions like "20.1..29" or "2x25.." or "..26.1" or "..",
     /// but not "..dev" or "dev.." into an array of [WildFlyContainer]s.
     pub fn range(range: &str) -> Result<Vec<WildFlyContainer>> {
-        if range.contains("..") {
-            let parts = range.split("..").collect::<Vec<&str>>();
-            if parts.len() == 2 {
-                if !(parts[0] == DEVELOPMENT_VERSION || parts[1] == DEVELOPMENT_TAG) {
-                    let from = match parts[0] {
-                        "" => Some(VERSIONS.first_key_value().unwrap().1.clone()),
-                        _ => Self::lookup_by_short_version(parts[0]).ok(),
-                    };
-                    let to = match parts[1] {
-                        "" => Some(VERSIONS.last_key_value().unwrap().1.clone()),
-                        _ => Self::lookup_by_short_version(parts[1]).ok(),
-                    };
-                    match (from, to) {
-                        (Some(f), Some(t)) => match f.identifier.cmp(&t.identifier) {
-                            Ordering::Equal => Ok(vec![f]),
-                            Ordering::Less => Ok(VERSIONS
-                                .range(f.identifier..=t.identifier)
-                                .map(|(_, w)| w.clone())
-                                .collect()),
-                            Ordering::Greater => {
-                                bail!(format!("{} is greater than {}", f.identifier, t.identifier))
+        if let Some((multiplier, range)) = Self::multiplier(range) {
+            if range.contains("..") {
+                let parts = range.split("..").collect::<Vec<&str>>();
+                if parts.len() == 2 {
+                    if !(parts[0] == DEVELOPMENT_VERSION || parts[1] == DEVELOPMENT_TAG) {
+                        let from = match parts[0] {
+                            "" => Some(VERSIONS.first_key_value().unwrap().1.clone()),
+                            _ => Self::single_version(parts[0]).ok(),
+                        };
+                        let to = match parts[1] {
+                            "" => Some(VERSIONS.last_key_value().unwrap().1.clone()),
+                            _ => Self::single_version(parts[1]).ok(),
+                        };
+                        match (from, to) {
+                            (Some(f), Some(t)) => match f.identifier.cmp(&t.identifier) {
+                                Ordering::Equal => Ok(vec![f.clone(); multiplier as usize]),
+                                Ordering::Less => Ok(VERSIONS
+                                    .range(f.identifier..=t.identifier)
+                                    .map(|(_, w)| vec![w.clone(); multiplier as usize])
+                                    .flatten()
+                                    .collect()),
+                                Ordering::Greater => {
+                                    bail!(format!(
+                                        "{} is greater than {}",
+                                        f.identifier, t.identifier
+                                    ))
+                                }
+                            },
+                            (None, _) => {
+                                bail!(format!("from '{}' is not valid", parts[0]))
                             }
-                        },
-                        (None, _) => {
-                            bail!(format!("from '{}' is not valid", parts[0]))
+                            (_, None) => {
+                                bail!(format!("to '{}' is not valid", parts[1]))
+                            }
                         }
-                        (_, None) => {
-                            bail!(format!("to '{}' is not valid", parts[1]))
-                        }
+                    } else {
+                        bail!(format!("'dev' is not allowed in '{}'", range))
                     }
                 } else {
-                    bail!(format!("'dev' is not allowed in '{}'", range))
+                    bail!(format!("'{}'", range))
                 }
             } else {
                 bail!(format!("'{}'", range))
             }
         } else {
-            bail!(format!("'{}'", range))
+            bail!(format!("invalid multiplier in '{}'", range))
+        }
+    }
+
+    /// Looks up a single [WildFlyContainer] version like "dev" or "22" or "3x26.1".
+    pub fn version(short_version: &str) -> Result<Vec<WildFlyContainer>> {
+        if let Some((multiplier, short_version)) = Self::multiplier(short_version) {
+            if short_version == "dev" {
+                Ok(vec![WILDFLY_DEV.clone(); multiplier as usize])
+            } else {
+                let re = Regex::new(r"^(?<major>[0-9]{2})\.?(?<minor>[0-9])?$")?;
+                match re.captures(short_version) {
+                    Some(c) => {
+                        let major: u16 = c["major"].parse()?;
+                        let minor: u16 = c
+                            .name("minor")
+                            .map_or(0, |m| m.as_str().parse().unwrap_or(0));
+                        match VERSIONS.get(&identifier(major, minor)) {
+                            Some(wildfly) => Ok(vec![wildfly.clone(); multiplier as usize]),
+                            None => bail!(format!("unknown version {}", short_version)),
+                        }
+                    }
+                    None => bail!(format!("invalid version '{}'", short_version)),
+                }
+            }
+        } else {
+            bail!(format!("invalid multiplier in '{}'", short_version))
         }
     }
 
     /// Looks up a single [WildFlyContainer] version like "dev" or "22" or "26.1".
-    pub fn lookup_by_short_version(short_version: &str) -> Result<WildFlyContainer> {
+    pub fn single_version(short_version: &str) -> Result<WildFlyContainer> {
         if short_version == "dev" {
             Ok(WILDFLY_DEV.clone())
         } else {
@@ -217,10 +251,35 @@ impl WildFlyContainer {
         }
     }
 
-    pub fn lookup_by_identifier(identifier: u16) -> Result<WildFlyContainer> {
+    pub fn lookup(identifier: u16) -> Result<WildFlyContainer> {
         match VERSIONS.get(&identifier) {
             Some(wildfly) => Ok(wildfly.clone()),
             None => bail!(format!("unknown version {}", identifier)),
+        }
+    }
+
+    fn multiplier(range_or_short_version: &str) -> Option<(u16, &str)> {
+        if range_or_short_version.contains('x') {
+            let parts = range_or_short_version.split('x').collect::<Vec<&str>>();
+            if parts.len() == 2 {
+                if !parts[1].is_empty() {
+                    if let Ok(multiplier) = parts[0].parse::<u16>() {
+                        if multiplier > 0 {
+                            Some((multiplier, parts[1]))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            Some((1, range_or_short_version))
         }
     }
 }
@@ -248,36 +307,91 @@ mod wildfly_tests {
     use crate::{WildFlyContainer, VERSIONS};
 
     #[test]
-    fn invalid_lookup() {
-        assert!(WildFlyContainer::lookup_by_short_version("").is_err());
-        assert!(WildFlyContainer::lookup_by_short_version("  ").is_err());
-        assert!(WildFlyContainer::lookup_by_short_version("foo").is_err());
-        assert!(WildFlyContainer::lookup_by_short_version(".").is_err());
-        assert!(WildFlyContainer::lookup_by_short_version("a.b").is_err());
-        assert!(WildFlyContainer::lookup_by_short_version("0").is_err());
-        assert!(WildFlyContainer::lookup_by_short_version("9").is_err());
-        assert!(WildFlyContainer::lookup_by_short_version("99").is_err());
-        assert!(WildFlyContainer::lookup_by_short_version("123").is_err());
-        assert!(WildFlyContainer::lookup_by_short_version("1.2.3").is_err());
-        assert!(WildFlyContainer::lookup_by_short_version("0.").is_err());
-        assert!(WildFlyContainer::lookup_by_short_version(".0").is_err());
-        assert!(WildFlyContainer::lookup_by_short_version("9.").is_err());
-        assert!(WildFlyContainer::lookup_by_short_version(".9").is_err());
-        assert!(WildFlyContainer::lookup_by_short_version(".123").is_err());
-        assert!(WildFlyContainer::lookup_by_short_version("123.").is_err());
-        assert!(WildFlyContainer::lookup_by_short_version("1.1").is_err());
-        assert!(WildFlyContainer::lookup_by_short_version("10.10").is_err());
-        assert!(WildFlyContainer::lookup_by_short_version("99").is_err());
+    fn multiplier_ok() {
+        assert_eq!(WildFlyContainer::multiplier("2x10"), Some((2, "10")));
+        assert_eq!(WildFlyContainer::multiplier("5x25.1"), Some((5, "25.1")));
+        assert_eq!(WildFlyContainer::multiplier("1x30"), Some((1, "30")));
+        assert_eq!(WildFlyContainer::multiplier("foo"), Some((1, "foo")));
+        assert_eq!(WildFlyContainer::multiplier(""), Some((1, "")));
     }
 
     #[test]
-    fn lookup() {
-        assert!(WildFlyContainer::lookup_by_short_version("dev").is_ok());
-        assert!(WildFlyContainer::lookup_by_short_version("10").is_ok());
-        assert!(WildFlyContainer::lookup_by_short_version("25").is_ok());
-        assert!(WildFlyContainer::lookup_by_short_version("25.0").is_ok());
-        assert!(WildFlyContainer::lookup_by_short_version("26.1").is_ok());
-        assert!(WildFlyContainer::lookup_by_short_version("34").is_ok());
+    fn multiplier_err() {
+        assert_eq!(WildFlyContainer::multiplier("0x10"), None);
+        assert_eq!(WildFlyContainer::multiplier("x25"), None);
+        assert_eq!(WildFlyContainer::multiplier("25x"), None);
+        assert_eq!(WildFlyContainer::multiplier("10xx20"), None);
+    }
+
+    #[test]
+    fn single_version_ok() {
+        assert!(WildFlyContainer::single_version("dev").is_ok());
+        assert!(WildFlyContainer::single_version("10").is_ok());
+        assert!(WildFlyContainer::single_version("25").is_ok());
+        assert!(WildFlyContainer::single_version("25.0").is_ok());
+        assert!(WildFlyContainer::single_version("26.1").is_ok());
+        assert!(WildFlyContainer::single_version("34").is_ok());
+    }
+
+    #[test]
+    fn single_version_err() {
+        assert!(WildFlyContainer::single_version("").is_err());
+        assert!(WildFlyContainer::single_version("  ").is_err());
+        assert!(WildFlyContainer::single_version("foo").is_err());
+        assert!(WildFlyContainer::single_version(".").is_err());
+        assert!(WildFlyContainer::single_version("a.b").is_err());
+        assert!(WildFlyContainer::single_version("0").is_err());
+        assert!(WildFlyContainer::single_version("9").is_err());
+        assert!(WildFlyContainer::single_version("99").is_err());
+        assert!(WildFlyContainer::single_version("123").is_err());
+        assert!(WildFlyContainer::single_version("1.2.3").is_err());
+        assert!(WildFlyContainer::single_version("0.").is_err());
+        assert!(WildFlyContainer::single_version(".0").is_err());
+        assert!(WildFlyContainer::single_version("9.").is_err());
+        assert!(WildFlyContainer::single_version(".9").is_err());
+        assert!(WildFlyContainer::single_version(".123").is_err());
+        assert!(WildFlyContainer::single_version("123.").is_err());
+        assert!(WildFlyContainer::single_version("1.1").is_err());
+        assert!(WildFlyContainer::single_version("10.10").is_err());
+        assert!(WildFlyContainer::single_version("99").is_err());
+    }
+
+    #[test]
+    fn version_multipliers() {
+        let wf = WildFlyContainer::version("1xdev").expect("1xdev");
+        assert_eq!(wf.len(), 1);
+        assert_eq!(wf[0].identifier, 0);
+        assert!(wf[0].is_dev());
+
+        let wf = WildFlyContainer::version("2x10").expect("2x10");
+        assert_eq!(wf.len(), 2);
+        for _ in 0..wf.len() {
+            assert_eq!(wf[0].identifier, 100);
+        }
+
+        let wf = WildFlyContainer::version("3x25").expect("3x25");
+        assert_eq!(wf.len(), 3);
+        for _ in 0..wf.len() {
+            assert_eq!(wf[0].identifier, 250);
+        }
+
+        let wf = WildFlyContainer::version("4x25.0").expect("4x25.0");
+        assert_eq!(wf.len(), 4);
+        for _ in 0..wf.len() {
+            assert_eq!(wf[0].identifier, 250);
+        }
+
+        let wf = WildFlyContainer::version("5x26.1").expect("5x26.1");
+        assert_eq!(wf.len(), 5);
+        for _ in 0..wf.len() {
+            assert_eq!(wf[0].identifier, 261);
+        }
+
+        let wf = WildFlyContainer::version("6x34").expect("6x34");
+        assert_eq!(wf.len(), 6);
+        for _ in 0..wf.len() {
+            assert_eq!(wf[0].identifier, 340);
+        }
     }
 
     #[test]
@@ -299,107 +413,94 @@ mod wildfly_tests {
 
     #[test]
     fn range_from_to() {
-        if let Ok(interval) = WildFlyContainer::range("20..20") {
-            assert_eq!(1, interval.len());
-            assert_eq!(200, interval[0].identifier);
-        } else {
-            panic!("Failed");
-        }
-        if let Ok(interval) = WildFlyContainer::range("10..10.1") {
-            assert_eq!(2, interval.len());
-            assert_eq!(100, interval[0].identifier);
-            assert_eq!(101, interval.last().unwrap().identifier)
-        } else {
-            panic!("Failed");
-        }
-        if let Ok(interval) = WildFlyContainer::range("19.1..20") {
-            assert_eq!(2, interval.len());
-            assert_eq!(191, interval[0].identifier);
-            assert_eq!(200, interval.last().unwrap().identifier)
-        } else {
-            panic!("Failed");
-        }
-        if let Ok(interval) = WildFlyContainer::range("19.1..26.1") {
-            assert_eq!(9, interval.len());
-            assert_eq!(191, interval[0].identifier);
-            assert_eq!(261, interval.last().unwrap().identifier)
-        } else {
-            panic!("Failed");
-        }
-        if let Ok(interval) = WildFlyContainer::range("20..30") {
-            assert_eq!(12, interval.len());
-            assert_eq!(200, interval[0].identifier);
-            assert_eq!(300, interval.last().unwrap().identifier)
-        } else {
-            panic!("Failed");
-        }
+        let interval = WildFlyContainer::range("20..20").expect("20..20");
+        assert_eq!(1, interval.len());
+        assert_eq!(200, interval[0].identifier);
+        let interval = WildFlyContainer::range("10..10.1").expect("10..10.1");
+        assert_eq!(2, interval.len());
+        assert_eq!(100, interval[0].identifier);
+        assert_eq!(101, interval.last().unwrap().identifier);
+        let interval = WildFlyContainer::range("19.1..20").expect("19.1..20");
+        assert_eq!(2, interval.len());
+        assert_eq!(191, interval[0].identifier);
+        assert_eq!(200, interval.last().unwrap().identifier);
+        let interval = WildFlyContainer::range("19.1..26.1").expect("19.1..26.1");
+        assert_eq!(9, interval.len());
+        assert_eq!(191, interval[0].identifier);
+        assert_eq!(261, interval.last().unwrap().identifier);
+        let interval = WildFlyContainer::range("20..30").expect("20..30");
+        assert_eq!(12, interval.len());
+        assert_eq!(200, interval[0].identifier);
+        assert_eq!(300, interval.last().unwrap().identifier);
     }
 
     #[test]
     fn range_from() {
-        if let Ok(interval) = WildFlyContainer::range("26.1..") {
-            assert_eq!(10, interval.len());
-            assert_eq!(261, interval[0].identifier);
-            assert_eq!(350, interval.last().unwrap().identifier)
-        } else {
-            panic!("Failed");
-        }
-        if let Ok(interval) = WildFlyContainer::range("30..") {
-            assert_eq!(6, interval.len());
-            assert_eq!(300, interval[0].identifier);
-            assert_eq!(350, interval.last().unwrap().identifier)
-        } else {
-            panic!("Failed");
-        }
+        let interval = WildFlyContainer::range("26.1..").expect("26.1..");
+        assert_eq!(10, interval.len());
+        assert_eq!(261, interval[0].identifier);
+        assert_eq!(350, interval.last().unwrap().identifier);
+        let interval = WildFlyContainer::range("30..").expect("30..");
+        assert_eq!(6, interval.len());
+        assert_eq!(300, interval[0].identifier);
+        assert_eq!(350, interval.last().unwrap().identifier);
         let last = VERSIONS.last_key_value().unwrap().1;
-        if let Ok(interval) = WildFlyContainer::range(format!("{}..", last.short_version).as_str())
-        {
-            assert_eq!(1, interval.len());
-            assert_eq!(last.identifier, interval[0].identifier);
-        } else {
-            panic!("Failed");
-        }
+        let interval =
+            WildFlyContainer::range(format!("{}..", last.short_version).as_str()).expect("last");
+        assert_eq!(1, interval.len());
+        assert_eq!(last.identifier, interval[0].identifier);
     }
 
     #[test]
     fn range_to() {
-        if let Ok(interval) = WildFlyContainer::range("..10") {
-            assert_eq!(1, interval.len());
-            assert_eq!(100, interval[0].identifier);
-        } else {
-            panic!("Failed");
-        }
-        if let Ok(interval) = WildFlyContainer::range("..10.1") {
-            assert_eq!(2, interval.len());
-            assert_eq!(100, interval[0].identifier);
-            assert_eq!(101, interval.last().unwrap().identifier)
-        } else {
-            panic!("Failed");
-        }
-        if let Ok(interval) = WildFlyContainer::range("..20") {
-            assert_eq!(13, interval.len());
-            assert_eq!(100, interval[0].identifier);
-            assert_eq!(200, interval.last().unwrap().identifier)
-        } else {
-            panic!("Failed");
-        }
+        let interval = WildFlyContainer::range("..10").expect("..10");
+        assert_eq!(1, interval.len());
+        assert_eq!(100, interval[0].identifier);
+        let interval = WildFlyContainer::range("..10.1").expect("..10.1");
+        assert_eq!(2, interval.len());
+        assert_eq!(100, interval[0].identifier);
+        assert_eq!(101, interval.last().unwrap().identifier);
+        let interval = WildFlyContainer::range("..20").expect("..20");
+        assert_eq!(13, interval.len());
+        assert_eq!(100, interval[0].identifier);
+        assert_eq!(200, interval.last().unwrap().identifier);
+    }
+
+    #[test]
+    fn range_multipliers() {
+        let interval = WildFlyContainer::range("2x20..20").expect("20..20");
+        assert_eq!(2, interval.len());
+        assert_eq!(200, interval[0].identifier);
+        let interval = WildFlyContainer::range("3x10..10.1").expect("10..10.1");
+        assert_eq!(3*2, interval.len());
+        assert_eq!(100, interval[0].identifier);
+        assert_eq!(101, interval.last().unwrap().identifier);
+        let interval = WildFlyContainer::range("4x19.1..20").expect("19.1..20");
+        assert_eq!(4*2, interval.len());
+        assert_eq!(191, interval[0].identifier);
+        assert_eq!(200, interval.last().unwrap().identifier);
+        let interval = WildFlyContainer::range("5x19.1..26.1").expect("19.1..26.1");
+        assert_eq!(5*9, interval.len());
+        assert_eq!(191, interval[0].identifier);
+        assert_eq!(261, interval.last().unwrap().identifier);
+        let interval = WildFlyContainer::range("6x20..30").expect("20..30");
+        assert_eq!(6*12, interval.len());
+        assert_eq!(200, interval[0].identifier);
+        assert_eq!(300, interval.last().unwrap().identifier);
     }
 
     #[test]
     fn range_all() {
-        if let Ok(interval) = WildFlyContainer::range("..") {
-            assert_eq!(VERSIONS.len(), interval.len());
-            assert_eq!(
-                *(VERSIONS.first_key_value().unwrap().0),
-                interval[0].identifier
-            );
-            assert_eq!(
-                *(VERSIONS.last_key_value().unwrap().0),
-                interval.last().unwrap().identifier
-            );
-        } else {
-            panic!("Failed");
-        }
+        let interval = WildFlyContainer::range("..").expect("..");
+        assert_eq!(VERSIONS.len(), interval.len());
+        assert_eq!(
+            *(VERSIONS.first_key_value().unwrap().0),
+            interval[0].identifier
+        );
+        assert_eq!(
+            *(VERSIONS.last_key_value().unwrap().0),
+            interval.last().unwrap().identifier
+        );
     }
 
     #[test]
@@ -408,23 +509,5 @@ mod wildfly_tests {
         assert!(WildFlyContainer::enumeration("  ").is_err());
         assert!(WildFlyContainer::enumeration(",").is_err());
         assert!(WildFlyContainer::enumeration("foo").is_err());
-    }
-
-    #[test]
-    fn enumeration() {
-        if let Ok(range) = WildFlyContainer::enumeration("23..26.1,dev,28,10,25,34") {
-            assert_eq!(9, range.len());
-            assert!(range[0].is_dev());
-            assert_eq!(100, range[1].identifier);
-            assert_eq!(230, range[2].identifier);
-            assert_eq!(240, range[3].identifier);
-            assert_eq!(250, range[4].identifier);
-            assert_eq!(260, range[5].identifier);
-            assert_eq!(261, range[6].identifier);
-            assert_eq!(280, range[7].identifier);
-            assert_eq!(340, range[8].identifier);
-        } else {
-            panic!("Failed");
-        }
     }
 }
