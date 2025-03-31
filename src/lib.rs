@@ -142,7 +142,6 @@ impl WildFlyContainer {
         });
         if errors.is_empty() {
             result.sort_by(|a, b| a.identifier.cmp(&b.identifier));
-            result.dedup();
             Ok(result)
         } else if errors.len() > 1 {
             bail!(format!("\n{}", errors.join("\n")))
@@ -172,8 +171,7 @@ impl WildFlyContainer {
                                 Ordering::Equal => Ok(vec![f.clone(); multiplier as usize]),
                                 Ordering::Less => Ok(VERSIONS
                                     .range(f.identifier..=t.identifier)
-                                    .map(|(_, w)| vec![w.clone(); multiplier as usize])
-                                    .flatten()
+                                    .flat_map(|(_, w)| vec![w.clone(); multiplier as usize])
                                     .collect()),
                                 Ordering::Greater => {
                                     bail!(format!(
