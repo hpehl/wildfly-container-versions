@@ -134,7 +134,7 @@ impl WildFlyContainer {
                     Err(e) => errors.push(e.to_string()),
                 }
             } else {
-                match Self::version(segment) {
+                match Self::versions(segment) {
                     Ok(w) => result.extend(w),
                     Err(e) => errors.push(e.to_string()),
                 }
@@ -160,11 +160,11 @@ impl WildFlyContainer {
                     if !(parts[0] == DEVELOPMENT_VERSION || parts[1] == DEVELOPMENT_TAG) {
                         let from = match parts[0] {
                             "" => Some(VERSIONS.first_key_value().unwrap().1.clone()),
-                            _ => Self::single_version(parts[0]).ok(),
+                            _ => Self::version(parts[0]).ok(),
                         };
                         let to = match parts[1] {
                             "" => Some(VERSIONS.last_key_value().unwrap().1.clone()),
-                            _ => Self::single_version(parts[1]).ok(),
+                            _ => Self::version(parts[1]).ok(),
                         };
                         match (from, to) {
                             (Some(f), Some(t)) => match f.identifier.cmp(&t.identifier) {
@@ -202,7 +202,7 @@ impl WildFlyContainer {
     }
 
     /// Looks up a single [WildFlyContainer] version like "dev" or "22" or "3x26.1".
-    pub fn version(short_version: &str) -> Result<Vec<WildFlyContainer>> {
+    pub fn versions(short_version: &str) -> Result<Vec<WildFlyContainer>> {
         if let Some((multiplier, short_version)) = Self::multiplier(short_version) {
             if short_version == "dev" {
                 Ok(vec![WILDFLY_DEV.clone(); multiplier as usize])
@@ -228,7 +228,7 @@ impl WildFlyContainer {
     }
 
     /// Looks up a single [WildFlyContainer] version like "dev" or "22" or "26.1".
-    pub fn single_version(short_version: &str) -> Result<WildFlyContainer> {
+    pub fn version(short_version: &str) -> Result<WildFlyContainer> {
         if short_version == "dev" {
             Ok(WILDFLY_DEV.clone())
         } else {
@@ -323,69 +323,69 @@ mod wildfly_tests {
 
     #[test]
     fn single_version_ok() {
-        assert!(WildFlyContainer::single_version("dev").is_ok());
-        assert!(WildFlyContainer::single_version("10").is_ok());
-        assert!(WildFlyContainer::single_version("25").is_ok());
-        assert!(WildFlyContainer::single_version("25.0").is_ok());
-        assert!(WildFlyContainer::single_version("26.1").is_ok());
-        assert!(WildFlyContainer::single_version("34").is_ok());
+        assert!(WildFlyContainer::version("dev").is_ok());
+        assert!(WildFlyContainer::version("10").is_ok());
+        assert!(WildFlyContainer::version("25").is_ok());
+        assert!(WildFlyContainer::version("25.0").is_ok());
+        assert!(WildFlyContainer::version("26.1").is_ok());
+        assert!(WildFlyContainer::version("34").is_ok());
     }
 
     #[test]
     fn single_version_err() {
-        assert!(WildFlyContainer::single_version("").is_err());
-        assert!(WildFlyContainer::single_version("  ").is_err());
-        assert!(WildFlyContainer::single_version("foo").is_err());
-        assert!(WildFlyContainer::single_version(".").is_err());
-        assert!(WildFlyContainer::single_version("a.b").is_err());
-        assert!(WildFlyContainer::single_version("0").is_err());
-        assert!(WildFlyContainer::single_version("9").is_err());
-        assert!(WildFlyContainer::single_version("99").is_err());
-        assert!(WildFlyContainer::single_version("123").is_err());
-        assert!(WildFlyContainer::single_version("1.2.3").is_err());
-        assert!(WildFlyContainer::single_version("0.").is_err());
-        assert!(WildFlyContainer::single_version(".0").is_err());
-        assert!(WildFlyContainer::single_version("9.").is_err());
-        assert!(WildFlyContainer::single_version(".9").is_err());
-        assert!(WildFlyContainer::single_version(".123").is_err());
-        assert!(WildFlyContainer::single_version("123.").is_err());
-        assert!(WildFlyContainer::single_version("1.1").is_err());
-        assert!(WildFlyContainer::single_version("10.10").is_err());
-        assert!(WildFlyContainer::single_version("99").is_err());
+        assert!(WildFlyContainer::version("").is_err());
+        assert!(WildFlyContainer::version("  ").is_err());
+        assert!(WildFlyContainer::version("foo").is_err());
+        assert!(WildFlyContainer::version(".").is_err());
+        assert!(WildFlyContainer::version("a.b").is_err());
+        assert!(WildFlyContainer::version("0").is_err());
+        assert!(WildFlyContainer::version("9").is_err());
+        assert!(WildFlyContainer::version("99").is_err());
+        assert!(WildFlyContainer::version("123").is_err());
+        assert!(WildFlyContainer::version("1.2.3").is_err());
+        assert!(WildFlyContainer::version("0.").is_err());
+        assert!(WildFlyContainer::version(".0").is_err());
+        assert!(WildFlyContainer::version("9.").is_err());
+        assert!(WildFlyContainer::version(".9").is_err());
+        assert!(WildFlyContainer::version(".123").is_err());
+        assert!(WildFlyContainer::version("123.").is_err());
+        assert!(WildFlyContainer::version("1.1").is_err());
+        assert!(WildFlyContainer::version("10.10").is_err());
+        assert!(WildFlyContainer::version("99").is_err());
     }
 
     #[test]
     fn version_multipliers() {
-        let wf = WildFlyContainer::version("1xdev").expect("1xdev");
+        let wf = WildFlyContainer::versions("1xdev").expect("1xdev");
         assert_eq!(wf.len(), 1);
         assert_eq!(wf[0].identifier, 0);
         assert!(wf[0].is_dev());
 
-        let wf = WildFlyContainer::version("2x10").expect("2x10");
+        let wf = WildFlyContainer::versions("2x10").expect("2x10");
         assert_eq!(wf.len(), 2);
         for _ in 0..wf.len() {
             assert_eq!(wf[0].identifier, 100);
         }
 
-        let wf = WildFlyContainer::version("3x25").expect("3x25");
+        let wf = WildFlyContainer::versions("3x25").expect("3x25");
         assert_eq!(wf.len(), 3);
         for _ in 0..wf.len() {
             assert_eq!(wf[0].identifier, 250);
         }
 
-        let wf = WildFlyContainer::version("4x25.0").expect("4x25.0");
+        let wf = WildFlyContainer::versions("4x25.0").expect("4x25.0");
         assert_eq!(wf.len(), 4);
         for _ in 0..wf.len() {
             assert_eq!(wf[0].identifier, 250);
         }
 
-        let wf = WildFlyContainer::version("5x26.1").expect("5x26.1");
+        let wf = WildFlyContainer::versions("5x26.1").expect("5x26.1");
         assert_eq!(wf.len(), 5);
         for _ in 0..wf.len() {
             assert_eq!(wf[0].identifier, 261);
         }
 
-        let wf = WildFlyContainer::version("6x34").expect("6x34");
+        let wf = WildFlyContainer::versions("6x34").expect("6x34");
         assert_eq!(wf.len(), 6);
         for _ in 0..wf.len() {
             assert_eq!(wf[0].identifier, 340);
