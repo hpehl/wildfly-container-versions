@@ -8,7 +8,6 @@ The library contains a struct describing WildFly container versions:
 ```rust
 use semver::Version;
 
-/// Describes a WildFly container version
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub struct WildFlyContainer {
     pub identifier: u16,
@@ -22,9 +21,10 @@ pub struct WildFlyContainer {
 ```
 
 In addition the library provides functions to parse expressions that represent single and multiple versions,
-version ranges, enumerations, or a combination of all of them. 
+version ranges, enumerations, or a combination of all of them.
 
-These expressions follow this [BNF](https://bnfplayground.pauliankline.com/?bnf=%3Cexpression%3E%20%3A%3A%3D%20%3Cexpression%3E%20%22%2C%22%20%3Celement%3E%20%7C%20%3Celement%3E%0A%3Celement%3E%20%3A%3A%3D%20%3Cmultiplier%3E%20%22x%22%20%3Crange%3E%20%7C%20%3Cmultiplier%3E%20%22x%22%20%3Cversion%3E%20%7C%20%3Crange%3E%20%7C%20%3Cversion%3E%0A%3Crange%3E%20%3A%3A%3D%20%3Cversion%3E%20%22..%22%20%3Cversion%3E%20%7C%20%22..%22%20%3Cversion%3E%20%7C%20%3Cversion%3E%20%22..%22%20%7C%20%22..%22%0A%3Cmultiplier%3E%20%3A%3A%3D%20%3Cnonzero_number%3E%20%7C%20%3Ctwo_digit_number%3E%0A%3Cversion%3E%20%3A%3A%3D%20%3Cmajor%3E%20%7C%20%3Cmajor%3E%20%22.%22%20%3Cminor%3E%0A%3Cmajor%3E%20%3A%3A%3D%20%3Ctwo_digit_number%3E%20%7C%20%3Cthree_digit_number%3E%0A%3Cminor%3E%20%3A%3A%3D%20%3Cnonzero_number%3E%20%7C%20%3Ctwo_digit_number%3E%0A%3Cthree_digit_number%3E%20%3A%3A%3D%20%3Cnonzero_number%3E%20%3Cnumber%3E%20%3Cnumber%3E%0A%3Ctwo_digit_number%3E%20%3A%3A%3D%20%3Cnonzero_number%3E%20%3Cnumber%3E%0A%3Cnumber%3E%20%3A%3A%3D%20%220%22%20%7C%20%221%22%20%7C%20%222%22%20%7C%20%223%22%20%7C%20%224%22%20%7C%20%225%22%20%7C%20%226%22%20%7C%20%227%22%20%7C%20%228%22%20%7C%20%229%22%0A%3Cnonzero_number%3E%20%3A%3A%3D%20%221%22%20%7C%20%222%22%20%7C%20%223%22%20%7C%20%224%22%20%7C%20%225%22%20%7C%20%226%22%20%7C%20%227%22%20%7C%20%228%22%20%7C%20%229%22%0A&name=WildFly%20Container%20Versions):
+These expressions follow
+this [BNF](https://bnfplayground.pauliankline.com/?bnf=%3Cexpression%3E%20%3A%3A%3D%20%3Cexpression%3E%20%22%2C%22%20%3Celement%3E%20%7C%20%3Celement%3E%0A%3Celement%3E%20%3A%3A%3D%20%3Cmultiplier%3E%20%22x%22%20%3Crange%3E%20%7C%20%3Cmultiplier%3E%20%22x%22%20%3Cversion%3E%20%7C%20%3Crange%3E%20%7C%20%3Cversion%3E%0A%3Crange%3E%20%3A%3A%3D%20%3Cversion%3E%20%22..%22%20%3Cversion%3E%20%7C%20%22..%22%20%3Cversion%3E%20%7C%20%3Cversion%3E%20%22..%22%20%7C%20%22..%22%0A%3Cmultiplier%3E%20%3A%3A%3D%20%3Cnonzero_number%3E%20%7C%20%3Ctwo_digit_number%3E%0A%3Cversion%3E%20%3A%3A%3D%20%3Cmajor%3E%20%7C%20%3Cmajor%3E%20%22.%22%20%3Cminor%3E%0A%3Cmajor%3E%20%3A%3A%3D%20%3Ctwo_digit_number%3E%20%7C%20%3Cthree_digit_number%3E%0A%3Cminor%3E%20%3A%3A%3D%20%3Cnonzero_number%3E%20%7C%20%3Ctwo_digit_number%3E%0A%3Cthree_digit_number%3E%20%3A%3A%3D%20%3Cnonzero_number%3E%20%3Cnumber%3E%20%3Cnumber%3E%0A%3Ctwo_digit_number%3E%20%3A%3A%3D%20%3Cnonzero_number%3E%20%3Cnumber%3E%0A%3Cnumber%3E%20%3A%3A%3D%20%220%22%20%7C%20%221%22%20%7C%20%222%22%20%7C%20%223%22%20%7C%20%224%22%20%7C%20%225%22%20%7C%20%226%22%20%7C%20%227%22%20%7C%20%228%22%20%7C%20%229%22%0A%3Cnonzero_number%3E%20%3A%3A%3D%20%221%22%20%7C%20%222%22%20%7C%20%223%22%20%7C%20%224%22%20%7C%20%225%22%20%7C%20%226%22%20%7C%20%227%22%20%7C%20%228%22%20%7C%20%229%22%0A&name=WildFly%20Container%20Versions):
 
 ```
 <expression> ::= <expression> "," <element> | <element>
@@ -53,32 +53,34 @@ Here are some examples
 
 ## Supported Versions
 
-- 10
-- 10.1
-- 11
-- 12
-- 13
-- 14
-- 15
-- 16
-- 17
-- 18
-- 19
-- 19.1.0
-- 20
-- 21
-- 22
-- 23
-- 24
-- 25
-- 26
-- 26.1.3
-- 27
-- 28
-- 29
-- 30
-- 31
-- 32
-- 33
-- 34
-- 35
+| Short Version | WildFly Version | Image / Tag                                | Platforms                                            |
+|---------------|-----------------|--------------------------------------------|------------------------------------------------------|
+| 10            | 10.0.0.Final    | docker.io/jboss/wildfly:10.0.0.Final       |                                                      |
+| 10.1          | 10.1.0.Final    | docker.io/jboss/wildfly:10.1.0.Final       |                                                      |
+| 11            | 11.0.0.Final    | docker.io/jboss/wildfly:11.0.0.Final       |                                                      |
+| 12            | 12.0.0.Final    | docker.io/jboss/wildfly:12.0.0.Final       |                                                      |
+| 13            | 13.0.0.Final    | docker.io/jboss/wildfly:13.0.0.Final       |                                                      |
+| 14            | 14.0.1.Final    | docker.io/jboss/wildfly:14.0.1.Final       |                                                      |
+| 15            | 15.0.1.Final    | docker.io/jboss/wildfly:15.0.1.Final       |                                                      |
+| 16            | 16.0.0.Final    | docker.io/jboss/wildfly:16.0.0.Final       |                                                      |
+| 17            | 17.0.1.Final    | docker.io/jboss/wildfly:17.0.1.Final       |                                                      |
+| 18            | 18.0.1.Final    | docker.io/jboss/wildfly:18.0.1.Final       |                                                      |
+| 19            | 19.0.0.Final    | docker.io/jboss/wildfly:19.0.0.Final       |                                                      |
+| 19.1          | 19.1.0.Final    | docker.io/jboss/wildfly:19.1.0.Final       |                                                      |
+| 20            | 20.0.1.Final    | docker.io/jboss/wildfly:20.0.1.Final       |                                                      |
+| 21            | 21.0.2.Final    | docker.io/jboss/wildfly:21.0.2.Final       |                                                      |
+| 22            | 22.0.1.Final    | docker.io/jboss/wildfly:22.0.1.Final       |                                                      |
+| 23            | 23.0.2.Final    | quay.io/wildfly/wildfly:23.0.2.Final       |                                                      |
+| 24            | 24.0.1.Final    | quay.io/wildfly/wildfly:24.0.1.Final       |                                                      |
+| 25            | 25.0.1.Final    | quay.io/wildfly/wildfly:25.0.1.Final       |                                                      |
+| 26            | 26.0.1.Final    | quay.io/wildfly/wildfly:26.0.1.Final       |                                                      |
+| 26.1          | 26.1.3.Final    | quay.io/wildfly/wildfly:26.1.3.Final-jdk17 | linux/amd64, linux/arm64                             |
+| 27            | 27.0.1.Final    | quay.io/wildfly/wildfly:27.0.1.Final-jdk19 | linux/amd64, linux/arm64                             |
+| 28            | 28.0.1.Final    | quay.io/wildfly/wildfly:28.0.1.Final-jdk20 | linux/amd64, linux/arm64                             |
+| 29            | 29.0.1.Final    | quay.io/wildfly/wildfly:29.0.1.Final-jdk20 | linux/amd64, linux/arm64                             |
+| 30            | 30.0.1.Final    | quay.io/wildfly/wildfly:30.0.1.Final-jdk20 | linux/amd64, linux/arm64                             |
+| 31            | 31.0.1.Final    | quay.io/wildfly/wildfly:31.0.1.Final-jdk20 | linux/amd64, linux/arm64                             |
+| 32            | 32.0.1.Final    | quay.io/wildfly/wildfly:32.0.1.Final-jdk21 | linux/amd64, linux/arm64, linux/s390x                |
+| 33            | 33.0.2.Final    | quay.io/wildfly/wildfly:33.0.2.Final-jdk21 | linux/amd64, linux/arm64, linux/s390x, linux/ppc64le |
+| 34            | 34.0.1.Final    | quay.io/wildfly/wildfly:34.0.1.Final-jdk21 | linux/amd64, linux/arm64, linux/s390x, linux/ppc64le |
+| 35            | 35.0.1.Final    | quay.io/wildfly/wildfly:35.0.1.Final-jdk21 | linux/amd64, linux/arm64, linux/s390x, linux/ppc64le |
