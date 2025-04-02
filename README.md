@@ -3,7 +3,8 @@
 A library for managing WildFly container versions deployed at https://hub.docker.com/r/jboss/wildfly and
 https://quay.io/repository/wildfly/wildfly.
 
-The library contains a struct describing WildFly container versions:
+The library contains a struct describing WildFly container versions and functions to parse expressions that are either
+short versions, multipliers, ranges, enumerations, or a combination of them.
 
 ```rust
 use semver::Version;
@@ -20,18 +21,31 @@ pub struct WildFlyContainer {
 }
 ```
 
-In addition the library provides functions to parse expressions that represent single and multiple versions,
-version ranges, enumerations, or a combination of all of them.
+```rust
+use anyhow::Result;
+use wildfly_container_versions::WildFlyContainer;
 
-These expressions follow
-this [BNF](https://bnfplayground.pauliankline.com/?bnf=%3Cexpression%3E%20%3A%3A%3D%20%3Cexpression%3E%20%22%2C%22%20%3Celement%3E%20%7C%20%3Celement%3E%0A%3Celement%3E%20%3A%3A%3D%20%3Cmultiplier%3E%20%22x%22%20%3Crange%3E%20%7C%20%3Cmultiplier%3E%20%22x%22%20%3Cversion%3E%20%7C%20%3Crange%3E%20%7C%20%3Cversion%3E%0A%3Crange%3E%20%3A%3A%3D%20%3Cversion%3E%20%22..%22%20%3Cversion%3E%20%7C%20%22..%22%20%3Cversion%3E%20%7C%20%3Cversion%3E%20%22..%22%20%7C%20%22..%22%0A%3Cmultiplier%3E%20%3A%3A%3D%20%3Cnonzero_number%3E%20%7C%20%3Ctwo_digit_number%3E%0A%3Cversion%3E%20%3A%3A%3D%20%3Cmajor%3E%20%7C%20%3Cmajor%3E%20%22.%22%20%3Cminor%3E%0A%3Cmajor%3E%20%3A%3A%3D%20%3Ctwo_digit_number%3E%20%7C%20%3Cthree_digit_number%3E%0A%3Cminor%3E%20%3A%3A%3D%20%3Cnonzero_number%3E%20%7C%20%3Ctwo_digit_number%3E%0A%3Cthree_digit_number%3E%20%3A%3A%3D%20%3Cnonzero_number%3E%20%3Cnumber%3E%20%3Cnumber%3E%0A%3Ctwo_digit_number%3E%20%3A%3A%3D%20%3Cnonzero_number%3E%20%3Cnumber%3E%0A%3Cnumber%3E%20%3A%3A%3D%20%220%22%20%7C%20%221%22%20%7C%20%222%22%20%7C%20%223%22%20%7C%20%224%22%20%7C%20%225%22%20%7C%20%226%22%20%7C%20%227%22%20%7C%20%228%22%20%7C%20%229%22%0A%3Cnonzero_number%3E%20%3A%3A%3D%20%221%22%20%7C%20%222%22%20%7C%20%223%22%20%7C%20%224%22%20%7C%20%225%22%20%7C%20%226%22%20%7C%20%227%22%20%7C%20%228%22%20%7C%20%229%22%0A&name=WildFly%20Container%20Versions):
+fn main() -> Result<()> {
+    let enumeration: Vec<WildFlyContainer> = WildFlyContainer::enumeration("3x10,23..26,5x28,34")?;
+    let range: Vec<WildFlyContainer> = WildFlyContainer::range("26.1..29")?;
+    let versions: Vec<WildFlyContainer> = WildFlyContainer::versions("2x33")?;
+    let version: WildFlyContainer = WildFlyContainer::version("35")?;
+    let lookup: WildFlyContainer = WildFlyContainer::lookup(340)?;
+    Ok(())
+}
+```
+
+## Version Expressions
+
+Version expressions are either short versions, multipliers, ranges, enumerations, or a combination of them. They follow
+this [BNF](https://bnfplayground.pauliankline.com/?bnf=%3Cexpression%3E%20%3A%3A%3D%20%3Cexpression%3E%20%22%2C%22%20%3Celement%3E%20%7C%20%3Celement%3E%0A%3Celement%3E%20%3A%3A%3D%20%3Cmultiplier%3E%20%22x%22%20%3Crange%3E%20%7C%20%3Cmultiplier%3E%20%22x%22%20%3Cshort_version%3E%20%7C%20%3Crange%3E%20%7C%20%3Cshort_version%3E%0A%3Crange%3E%20%3A%3A%3D%20%3Cshort_version%3E%20%22..%22%20%3Cshort_version%3E%20%7C%20%22..%22%20%3Cshort_version%3E%20%7C%20%3Cshort_version%3E%20%22..%22%20%7C%20%22..%22%0A%3Cmultiplier%3E%20%3A%3A%3D%20%3Cnonzero_number%3E%20%7C%20%3Ctwo_digit_number%3E%0A%3Cshort_version%3E%20%3A%3A%3D%20%3Cmajor%3E%20%7C%20%3Cmajor%3E%20%22.%22%20%3Cminor%3E%0A%3Cmajor%3E%20%3A%3A%3D%20%3Ctwo_digit_number%3E%20%7C%20%3Cthree_digit_number%3E%0A%3Cminor%3E%20%3A%3A%3D%20%3Cnonzero_number%3E%20%7C%20%3Ctwo_digit_number%3E%0A%3Cthree_digit_number%3E%20%3A%3A%3D%20%3Cnonzero_number%3E%20%3Cnumber%3E%20%3Cnumber%3E%0A%3Ctwo_digit_number%3E%20%3A%3A%3D%20%3Cnonzero_number%3E%20%3Cnumber%3E%0A%3Cnumber%3E%20%3A%3A%3D%20%220%22%20%7C%20%221%22%20%7C%20%222%22%20%7C%20%223%22%20%7C%20%224%22%20%7C%20%225%22%20%7C%20%226%22%20%7C%20%227%22%20%7C%20%228%22%20%7C%20%229%22%0A%3Cnonzero_number%3E%20%3A%3A%3D%20%221%22%20%7C%20%222%22%20%7C%20%223%22%20%7C%20%224%22%20%7C%20%225%22%20%7C%20%226%22%20%7C%20%227%22%20%7C%20%228%22%20%7C%20%229%22%0A&name=WildFly%20Container%20Versions):
 
 ```
 <expression> ::= <expression> "," <element> | <element>
-<element> ::= <multiplier> "x" <range> | <multiplier> "x" <version> | <range> | <version>
-<range> ::= <version> ".." <version> | ".." <version> | <version> ".." | ".."
+<element> ::= <multiplier> "x" <range> | <multiplier> "x" <short_version> | <range> | <short_version>
+<range> ::= <short_version> ".." <short_version> | ".." <short_version> | <short_version> ".." | ".."
 <multiplier> ::= <nonzero_number> | <two_digit_number>
-<version> ::= <major> | <major> "." <minor>
+<short_version> ::= <major> | <major> "." <minor>
 <major> ::= <two_digit_number> | <three_digit_number>
 <minor> ::= <nonzero_number> | <two_digit_number>
 <three_digit_number> ::= <nonzero_number> <number> <number>
@@ -40,15 +54,16 @@ this [BNF](https://bnfplayground.pauliankline.com/?bnf=%3Cexpression%3E%20%3A%3A
 <nonzero_number> ::= "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
 ```
 
-Here are some examples
+### Examples
 
 - 10
 - 26.1
-- 23..33
 - 3x35
+- 23..33
 - 25..
 - ..26.1
 - ..
+- 5x33..35
 - 20,25..29,2x31,3x32,4x33..35
 
 ## Supported Versions
