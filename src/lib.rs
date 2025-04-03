@@ -37,7 +37,7 @@ lazy_static! {
         m.insert(identifier(21, 0), WildFlyContainer::new(Version::new(21, 0, 2), Version::new(13, 0, 3), "Final", "docker.io/jboss/wildfly", vec![]));
         m.insert(identifier(22, 0), WildFlyContainer::new(Version::new(22, 0, 1), Version::new(14, 0, 1), "Final", "docker.io/jboss/wildfly", vec![]));
         m.insert(identifier(23, 0), WildFlyContainer::new(Version::new(23, 0, 2), Version::new(15, 0, 1), "Final", "quay.io/wildfly/wildfly", vec![]));
-        m.insert(identifier(24, 0), WildFlyContainer::new(Version::new(24, 0, 1), Version::new(16, 0, 1), "Final", "quay.io/wildfly/wildfly", vec![]));
+        m.insert(identifier(24, 0), WildFlyContainer::new(Version::new(24, 0, 0), Version::new(16, 0, 0), "Final", "quay.io/wildfly/wildfly", vec![]));
         m.insert(identifier(25, 0), WildFlyContainer::new(Version::new(25, 0, 1), Version::new(17, 0, 3), "Final", "quay.io/wildfly/wildfly", vec![]));
         m.insert(identifier(26, 0), WildFlyContainer::new(Version::new(26, 0, 1), Version::new(18, 0, 4), "Final", "quay.io/wildfly/wildfly", vec![]));
         m.insert(identifier(26, 1), WildFlyContainer::new(Version::new(26, 1, 3), Version::new(18, 1, 2), "Final-jdk17", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64"]));
