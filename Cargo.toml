@@ -1,6 +1,6 @@
 [package]
 name = "wildfly_container_versions"
-version = "0.1.5"
+version = "0.2.0"
 authors = ["Harald Pehl <harald.pehl@gmail.com>"]
 edition = "2021"
 description = "A library for WildFly container versions"
