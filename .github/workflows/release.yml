@@ -1,4 +1,4 @@
-name: Release HAL
+name: Release
 
 on:
   push:
