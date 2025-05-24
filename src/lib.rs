@@ -233,16 +233,20 @@ impl WildFlyContainer {
         if short_version == "dev" {
             Ok(WILDFLY_DEV.clone())
         } else {
-            let re = Regex::new(r"^(?<major>[0-9]{2})\.?(?<minor>[0-9])?$")?;
+            let re = Regex::new(r"^(?<major>[0-9]{2})(?<dot>\.)?(?<minor>[0-9])?$")?;
             match re.captures(short_version) {
                 Some(c) => {
                     let major: u16 = c["major"].parse()?;
-                    let minor: u16 = c
-                        .name("minor")
-                        .map_or(0, |m| m.as_str().parse().unwrap_or(0));
-                    match VERSIONS.get(&identifier(major, minor)) {
-                        Some(wildfly) => Ok(wildfly.clone()),
-                        None => bail!(format!("unknown version {}", short_version)),
+                    let dot = c.name("dot").is_some();
+                    let minor = c.name("minor");
+                    if dot && minor.is_none() {
+                        bail!(format!("invalid version '{}'", short_version))
+                    } else {
+                        let minor: u16 = minor.map_or(0, |m| m.as_str().parse().unwrap_or(0));
+                        match VERSIONS.get(&identifier(major, minor)) {
+                            Some(wildfly) => Ok(wildfly.clone()),
+                            None => bail!(format!("unknown version {}", short_version)),
+                        }
                     }
                 }
                 None => bail!(format!("invalid version '{}'", short_version)),
@@ -353,6 +357,7 @@ mod wildfly_tests {
         assert!(WildFlyContainer::version("1.1").is_err());
         assert!(WildFlyContainer::version("10.10").is_err());
         assert!(WildFlyContainer::version("99").is_err());
+        assert!(WildFlyContainer::version("10.").is_err());
     }
 
     #[test]
