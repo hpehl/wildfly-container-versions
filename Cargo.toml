@@ -11,9 +11,9 @@ license = "Apache-2.0"
 keywords = ["WildFly", "container", "version"]
 
 [dependencies]
-anyhow = "1.0.98"
+anyhow = "1.0.99"
 lazy_static = "1.5.0"
-regex = "1.11.1"
+regex = "1.11.2"
 semver = "1.0.26"
 
 [lib]
