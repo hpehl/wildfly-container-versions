@@ -101,4 +101,4 @@ this [BNF](https://bnfplayground.pauliankline.com/?bnf=%3Cexpression%3E%20%3A%3A
 | 35            | 35.0.1.Final    | quay.io/wildfly/wildfly:35.0.1.Final-jdk21 | linux/amd64, linux/arm64, linux/s390x, linux/ppc64le |
 | 36            | 36.0.1.Final    | quay.io/wildfly/wildfly:36.0.1.Final-jdk21 | linux/amd64, linux/arm64, linux/s390x, linux/ppc64le |
 | 37            | 37.0.1.Final    | quay.io/wildfly/wildfly:37.0.1.Final-jdk21 | linux/amd64, linux/arm64, linux/s390x, linux/ppc64le |
-| 38            | 38.0.1.Final    | quay.io/wildfly/wildfly:38.0.0.Final-jdk21 | linux/amd64, linux/arm64, linux/s390x, linux/ppc64le |
+| 38            | 38.0.1.Final    | quay.io/wildfly/wildfly:38.0.1.Final-jdk21 | linux/amd64, linux/arm64, linux/s390x, linux/ppc64le |
