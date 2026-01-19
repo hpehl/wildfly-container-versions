@@ -3,8 +3,10 @@
 A library for managing WildFly container versions deployed at https://hub.docker.com/r/jboss/wildfly and
 https://quay.io/repository/wildfly/wildfly.
 
-The library contains a struct describing WildFly container versions and functions to parse expressions that are either
+The library contains a struct describing WildFly container versions and various functions to parse expressions that are either
 short versions, multipliers, ranges, enumerations, or a combination of them.
+
+The library is consumed by Rust-based CLI tools that deal with WildFly containers such as [wado](https://github.com/hpehl/wado).
 
 ```rust
 use semver::Version;

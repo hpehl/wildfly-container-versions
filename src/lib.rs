@@ -444,13 +444,13 @@ mod wildfly_tests {
     #[test]
     fn range_from() {
         let interval = WildFlyContainer::range("26.1..").expect("26.1..");
-        assert_eq!(13, interval.len());
+        assert_eq!(14, interval.len());
         assert_eq!(261, interval[0].identifier);
-        assert_eq!(380, interval.last().unwrap().identifier);
+        assert_eq!(390, interval.last().unwrap().identifier);
         let interval = WildFlyContainer::range("30..").expect("30..");
-        assert_eq!(9, interval.len());
+        assert_eq!(10, interval.len());
         assert_eq!(300, interval[0].identifier);
-        assert_eq!(380, interval.last().unwrap().identifier);
+        assert_eq!(390, interval.last().unwrap().identifier);
         let last = VERSIONS.last_key_value().unwrap().1;
         let interval =
             WildFlyContainer::range(format!("{}..", last.short_version).as_str()).expect("last");
