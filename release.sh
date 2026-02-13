@@ -114,7 +114,7 @@ setup_colors
 
 TAG="v${RELEASE_VERSION}"
 
-# is_semver "${RELEASE_VERSION}" || die "Release version is not a semantic version"
+is_semver "${RELEASE_VERSION}" || die "Release version is not a semantic version"
 git diff-index --quiet HEAD || die "You have uncommitted changes"
 [[ $(git tag -l "${TAG}") ]] && die "Tag ${TAG} already defined"
 
