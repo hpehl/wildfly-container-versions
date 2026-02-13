@@ -53,7 +53,7 @@ lazy_static! {
         m.insert(identifier(36, 0), WildFlyContainer::new(Version::new(36, 0, 1), Version::new(28, 0, 1), "Final-jdk21", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64", "linux/s390x", "linux/ppc64le"]));
         m.insert(identifier(37, 0), WildFlyContainer::new(Version::new(37, 0, 1), Version::new(29, 0, 1), "Final-jdk21", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64", "linux/s390x", "linux/ppc64le"]));
         m.insert(identifier(38, 0), WildFlyContainer::new(Version::new(38, 0, 1), Version::new(30, 0, 0), "Final-jdk21", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64", "linux/s390x", "linux/ppc64le"]));
-        m.insert(identifier(39, 0), WildFlyContainer::new(Version::new(39, 0, 1), Version::new(31, 0, 3), "Final-jdk21", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64", "linux/s390x", "linux/ppc64le"]));
+        m.insert(identifier(39, 0), WildFlyContainer::new(Version::new(39, 0, 1), Version::new(31, 0, 3), "Final-2-jdk21", "quay.io/wildfly/wildfly", vec!["linux/amd64", "linux/arm64", "linux/s390x", "linux/ppc64le"]));
         // @formatter:on
         m
     };
