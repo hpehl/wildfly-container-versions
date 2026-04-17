@@ -18,6 +18,8 @@ const HTTP_PORT_BASE: u16 = 8000;
 const MANAGEMENT_PORT_BASE: u16 = 9000;
 
 lazy_static! {
+    static ref VERSION_RE: Regex = Regex::new(r"^(?<major>[0-9]{2})(?<dot>\.)?(?<minor>[0-9])?$").unwrap();
+    static ref VERSIONS_RE: Regex = Regex::new(r"^(?<major>[0-9]{2})\.?(?<minor>[0-9])?$").unwrap();
     static ref WILDFLY_DEV: WildFlyContainer = WildFlyContainer::new(Version::new(0, 0, 0), Version::new(0, 0, 0), "", "", vec![]);
 
     /// Static map with versions from 10 to 35
@@ -134,12 +136,16 @@ impl WildFlyContainer {
 
     /// Returns the HTTP port (base 8000 + port offset derived from major/minor version).
     pub fn http_port(&self) -> u16 {
-        HTTP_PORT_BASE + self.port_offset
+        HTTP_PORT_BASE
+            .checked_add(self.port_offset)
+            .expect("HTTP port overflow")
     }
 
     /// Returns the management port (base 9000 + port offset derived from major/minor version).
     pub fn management_port(&self) -> u16 {
-        MANAGEMENT_PORT_BASE + self.port_offset
+        MANAGEMENT_PORT_BASE
+            .checked_add(self.port_offset)
+            .expect("management port overflow")
     }
 
     /// Turns an enumeration of WildFly versions like "3x10,23..26,5x28,34,dev"
@@ -164,7 +170,7 @@ impl WildFlyContainer {
             result.sort_by(|a, b| a.identifier.cmp(&b.identifier));
             Ok(result)
         } else if errors.len() > 1 {
-            bail!(format!("\n{}", errors.join("\n")))
+            bail!("\n{}", errors.join("\n"))
         } else {
             bail!(errors.first().unwrap().to_string())
         }
@@ -214,8 +220,7 @@ impl WildFlyContainer {
             if short_version == "dev" {
                 Ok(vec![WILDFLY_DEV.clone(); multiplier as usize])
             } else {
-                let re = Regex::new(r"^(?<major>[0-9]{2})\.?(?<minor>[0-9])?$")?;
-                match re.captures(short_version) {
+                match VERSIONS_RE.captures(short_version) {
                     Some(c) => {
                         let major: u16 = c["major"].parse()?;
                         let minor: u16 = c
@@ -223,14 +228,14 @@ impl WildFlyContainer {
                             .map_or(0, |m| m.as_str().parse().unwrap_or(0));
                         match VERSIONS.get(&identifier(major, minor)) {
                             Some(wildfly) => Ok(vec![wildfly.clone(); multiplier as usize]),
-                            None => bail!(format!("unknown version {}", short_version)),
+                            None => bail!("unknown version {}", short_version),
                         }
                     }
-                    None => bail!(format!("invalid version '{}'", short_version)),
+                    None => bail!("invalid version '{}'", short_version),
                 }
             }
         } else {
-            bail!(format!("invalid multiplier in '{}'", short_version))
+            bail!("invalid multiplier in '{}'", short_version)
         }
     }
 
@@ -239,23 +244,22 @@ impl WildFlyContainer {
         if short_version == "dev" {
             Ok(WILDFLY_DEV.clone())
         } else {
-            let re = Regex::new(r"^(?<major>[0-9]{2})(?<dot>\.)?(?<minor>[0-9])?$")?;
-            match re.captures(short_version) {
+            match VERSION_RE.captures(short_version) {
                 Some(c) => {
                     let major: u16 = c["major"].parse()?;
                     let dot = c.name("dot").is_some();
                     let minor = c.name("minor");
                     if dot && minor.is_none() {
-                        bail!(format!("invalid version '{}'", short_version))
+                        bail!("invalid version '{}'", short_version)
                     } else {
                         let minor: u16 = minor.map_or(0, |m| m.as_str().parse().unwrap_or(0));
                         match VERSIONS.get(&identifier(major, minor)) {
                             Some(wildfly) => Ok(wildfly.clone()),
-                            None => bail!(format!("unknown version {}", short_version)),
+                            None => bail!("unknown version {}", short_version),
                         }
                     }
                 }
-                None => bail!(format!("invalid version '{}'", short_version)),
+                None => bail!("invalid version '{}'", short_version),
             }
         }
     }
@@ -264,7 +268,7 @@ impl WildFlyContainer {
     pub fn lookup(identifier: u16) -> Result<WildFlyContainer> {
         match VERSIONS.get(&identifier) {
             Some(wildfly) => Ok(wildfly.clone()),
-            None => bail!(format!("unknown version {}", identifier)),
+            None => bail!("unknown version {}", identifier),
         }
     }
 
