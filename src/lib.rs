@@ -118,6 +118,14 @@ impl WildFlyContainer {
         self.identifier == 0
     }
 
+    pub fn display_version(&self) -> String {
+        if self.is_dev() {
+            DEVELOPMENT_VERSION.to_string()
+        } else {
+            self.version.to_string()
+        }
+    }
+
     pub fn http_port(&self) -> u16 {
         8000 + self.port_offset
     }
