@@ -380,33 +380,23 @@ mod wildfly_tests {
 
         let wf = WildFlyContainer::versions("2x10").expect("2x10");
         assert_eq!(wf.len(), 2);
-        for _ in 0..wf.len() {
-            assert_eq!(wf[0].identifier, 100);
-        }
+        assert!(wf.iter().all(|w| w.identifier == 100));
 
         let wf = WildFlyContainer::versions("3x25").expect("3x25");
         assert_eq!(wf.len(), 3);
-        for _ in 0..wf.len() {
-            assert_eq!(wf[0].identifier, 250);
-        }
+        assert!(wf.iter().all(|w| w.identifier == 250));
 
         let wf = WildFlyContainer::versions("4x25.0").expect("4x25.0");
         assert_eq!(wf.len(), 4);
-        for _ in 0..wf.len() {
-            assert_eq!(wf[0].identifier, 250);
-        }
+        assert!(wf.iter().all(|w| w.identifier == 250));
 
         let wf = WildFlyContainer::versions("5x26.1").expect("5x26.1");
         assert_eq!(wf.len(), 5);
-        for _ in 0..wf.len() {
-            assert_eq!(wf[0].identifier, 261);
-        }
+        assert!(wf.iter().all(|w| w.identifier == 261));
 
         let wf = WildFlyContainer::versions("6x34").expect("6x34");
         assert_eq!(wf.len(), 6);
-        for _ in 0..wf.len() {
-            assert_eq!(wf[0].identifier, 340);
-        }
+        assert!(wf.iter().all(|w| w.identifier == 340));
     }
 
     #[test]
@@ -516,6 +506,33 @@ mod wildfly_tests {
             *(VERSIONS.last_key_value().unwrap().0),
             interval.last().unwrap().identifier
         );
+    }
+
+    #[test]
+    fn display_version_dev() {
+        let dev = WildFlyContainer::version("dev").unwrap();
+        assert_eq!(dev.display_version(), "dev");
+    }
+
+    #[test]
+    fn display_version_regular() {
+        let wf = WildFlyContainer::version("25").unwrap();
+        assert_eq!(wf.display_version(), "25.0.1");
+        let wf = WildFlyContainer::version("26.1").unwrap();
+        assert_eq!(wf.display_version(), "26.1.3");
+    }
+
+    #[test]
+    fn lookup_ok() {
+        assert!(WildFlyContainer::lookup(100).is_ok());
+        assert!(WildFlyContainer::lookup(261).is_ok());
+        assert!(WildFlyContainer::lookup(390).is_ok());
+    }
+
+    #[test]
+    fn lookup_err() {
+        assert!(WildFlyContainer::lookup(0).is_err());
+        assert!(WildFlyContainer::lookup(999).is_err());
     }
 
     #[test]
