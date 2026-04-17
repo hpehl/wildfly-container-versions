@@ -125,12 +125,12 @@ impl WildFlyContainer {
         self.identifier == 0
     }
 
-    /// Returns "dev" for development builds, otherwise the semantic version string.
+    /// Returns "dev" for development builds, otherwise the short version.
     pub fn display_version(&self) -> String {
         if self.is_dev() {
             DEVELOPMENT_VERSION.to_string()
         } else {
-            self.version.to_string()
+            self.short_version
         }
     }
 
@@ -200,7 +200,8 @@ impl WildFlyContainer {
             "" => Some(VERSIONS.last_key_value().unwrap().1.clone()),
             _ => Self::version(parts[1]).ok(),
         };
-        let from = from.ok_or_else(|| anyhow::anyhow!("invalid range bound: from '{}'", parts[0]))?;
+        let from =
+            from.ok_or_else(|| anyhow::anyhow!("invalid range bound: from '{}'", parts[0]))?;
         let to = to.ok_or_else(|| anyhow::anyhow!("invalid range bound: to '{}'", parts[1]))?;
         match from.identifier.cmp(&to.identifier) {
             Ordering::Equal => Ok(vec![from.clone(); multiplier as usize]),
