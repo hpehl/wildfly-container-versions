@@ -14,6 +14,9 @@ use std::collections::BTreeMap;
 pub static DEVELOPMENT_VERSION: &str = "dev";
 pub static DEVELOPMENT_TAG: &str = "development";
 
+const HTTP_PORT_BASE: u16 = 8000;
+const MANAGEMENT_PORT_BASE: u16 = 9000;
+
 lazy_static! {
     static ref WILDFLY_DEV: WildFlyContainer = WildFlyContainer::new(Version::new(0, 0, 0), Version::new(0, 0, 0), "", "", vec![]);
 
@@ -106,6 +109,7 @@ impl WildFlyContainer {
         }
     }
 
+    /// Returns the container image name, or the WildFly source repository URL for dev builds.
     pub fn image_name(&self) -> String {
         if self.is_dev() {
             "https://github.com/wildfly/wildfly.git".to_string()
@@ -114,10 +118,12 @@ impl WildFlyContainer {
         }
     }
 
+    /// Returns `true` if this is the development (build-from-source) container.
     pub fn is_dev(&self) -> bool {
         self.identifier == 0
     }
 
+    /// Returns "dev" for development builds, otherwise the semantic version string.
     pub fn display_version(&self) -> String {
         if self.is_dev() {
             DEVELOPMENT_VERSION.to_string()
@@ -126,12 +132,14 @@ impl WildFlyContainer {
         }
     }
 
+    /// Returns the HTTP port (base 8000 + port offset derived from major/minor version).
     pub fn http_port(&self) -> u16 {
-        8000 + self.port_offset
+        HTTP_PORT_BASE + self.port_offset
     }
 
+    /// Returns the management port (base 9000 + port offset derived from major/minor version).
     pub fn management_port(&self) -> u16 {
-        9000 + self.port_offset
+        MANAGEMENT_PORT_BASE + self.port_offset
     }
 
     /// Turns an enumeration of WildFly versions like "3x10,23..26,5x28,34,dev"
@@ -165,51 +173,38 @@ impl WildFlyContainer {
     /// Turns a range of WildFly versions like "20.1..29" or "2x25.." or "..26.1" or "..",
     /// but not "..dev" or "dev.." into an array of [WildFlyContainer]s.
     pub fn range(range: &str) -> Result<Vec<WildFlyContainer>> {
-        if let Some((multiplier, range)) = Self::multiplier(range) {
-            if range.contains("..") {
-                let parts = range.split("..").collect::<Vec<&str>>();
-                if parts.len() == 2 {
-                    if !(parts[0] == DEVELOPMENT_VERSION || parts[1] == DEVELOPMENT_TAG) {
-                        let from = match parts[0] {
-                            "" => Some(VERSIONS.first_key_value().unwrap().1.clone()),
-                            _ => Self::version(parts[0]).ok(),
-                        };
-                        let to = match parts[1] {
-                            "" => Some(VERSIONS.last_key_value().unwrap().1.clone()),
-                            _ => Self::version(parts[1]).ok(),
-                        };
-                        match (from, to) {
-                            (Some(f), Some(t)) => match f.identifier.cmp(&t.identifier) {
-                                Ordering::Equal => Ok(vec![f.clone(); multiplier as usize]),
-                                Ordering::Less => Ok(VERSIONS
-                                    .range(f.identifier..=t.identifier)
-                                    .flat_map(|(_, w)| vec![w.clone(); multiplier as usize])
-                                    .collect()),
-                                Ordering::Greater => {
-                                    bail!(format!(
-                                        "{} is greater than {}",
-                                        f.identifier, t.identifier
-                                    ))
-                                }
-                            },
-                            (None, _) => {
-                                bail!(format!("from '{}' is not valid", parts[0]))
-                            }
-                            (_, None) => {
-                                bail!(format!("to '{}' is not valid", parts[1]))
-                            }
-                        }
-                    } else {
-                        bail!(format!("'dev' is not allowed in '{}'", range))
-                    }
-                } else {
-                    bail!(format!("'{}'", range))
-                }
-            } else {
-                bail!(format!("'{}'", range))
+        let Some((multiplier, range)) = Self::multiplier(range) else {
+            bail!("invalid multiplier in '{}'", range)
+        };
+        if !range.contains("..") {
+            bail!("invalid range syntax: '{}'", range)
+        }
+        let parts = range.split("..").collect::<Vec<&str>>();
+        if parts.len() != 2 {
+            bail!("invalid range syntax: '{}'", range)
+        }
+        if parts[0] == DEVELOPMENT_VERSION || parts[1] == DEVELOPMENT_TAG {
+            bail!("'dev' is not allowed in range '{}'", range)
+        }
+        let from = match parts[0] {
+            "" => Some(VERSIONS.first_key_value().unwrap().1.clone()),
+            _ => Self::version(parts[0]).ok(),
+        };
+        let to = match parts[1] {
+            "" => Some(VERSIONS.last_key_value().unwrap().1.clone()),
+            _ => Self::version(parts[1]).ok(),
+        };
+        let from = from.ok_or_else(|| anyhow::anyhow!("invalid range bound: from '{}'", parts[0]))?;
+        let to = to.ok_or_else(|| anyhow::anyhow!("invalid range bound: to '{}'", parts[1]))?;
+        match from.identifier.cmp(&to.identifier) {
+            Ordering::Equal => Ok(vec![from.clone(); multiplier as usize]),
+            Ordering::Less => Ok(VERSIONS
+                .range(from.identifier..=to.identifier)
+                .flat_map(|(_, w)| vec![w.clone(); multiplier as usize])
+                .collect()),
+            Ordering::Greater => {
+                bail!("{} is greater than {}", from.identifier, to.identifier)
             }
-        } else {
-            bail!(format!("invalid multiplier in '{}'", range))
         }
     }
 
@@ -265,6 +260,7 @@ impl WildFlyContainer {
         }
     }
 
+    /// Looks up a [WildFlyContainer] by its numeric identifier (`major * 10 + minor`).
     pub fn lookup(identifier: u16) -> Result<WildFlyContainer> {
         match VERSIONS.get(&identifier) {
             Some(wildfly) => Ok(wildfly.clone()),
