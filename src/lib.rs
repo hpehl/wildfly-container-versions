@@ -189,7 +189,7 @@ impl WildFlyContainer {
         if parts.len() != 2 {
             bail!("invalid range syntax: '{}'", range)
         }
-        if parts[0] == DEVELOPMENT_VERSION || parts[1] == DEVELOPMENT_TAG {
+        if parts[0] == DEVELOPMENT_VERSION || parts[1] == DEVELOPMENT_VERSION {
             bail!("'dev' is not allowed in range '{}'", range)
         }
         let from = match parts[0] {
@@ -223,9 +223,10 @@ impl WildFlyContainer {
                 match VERSIONS_RE.captures(short_version) {
                     Some(c) => {
                         let major: u16 = c["major"].parse()?;
-                        let minor: u16 = c
-                            .name("minor")
-                            .map_or(0, |m| m.as_str().parse().unwrap_or(0));
+                        let minor: u16 = match c.name("minor") {
+                            Some(m) => m.as_str().parse()?,
+                            None => 0,
+                        };
                         match VERSIONS.get(&identifier(major, minor)) {
                             Some(wildfly) => Ok(vec![wildfly.clone(); multiplier as usize]),
                             None => bail!("unknown version {}", short_version),
@@ -252,7 +253,10 @@ impl WildFlyContainer {
                     if dot && minor.is_none() {
                         bail!("invalid version '{}'", short_version)
                     } else {
-                        let minor: u16 = minor.map_or(0, |m| m.as_str().parse().unwrap_or(0));
+                        let minor: u16 = match minor {
+                            Some(m) => m.as_str().parse()?,
+                            None => 0,
+                        };
                         match VERSIONS.get(&identifier(major, minor)) {
                             Some(wildfly) => Ok(wildfly.clone()),
                             None => bail!("unknown version {}", short_version),
@@ -533,6 +537,40 @@ mod wildfly_tests {
     fn lookup_err() {
         assert!(WildFlyContainer::lookup(0).is_err());
         assert!(WildFlyContainer::lookup(999).is_err());
+    }
+
+    #[test]
+    fn enumeration_ok() {
+        let result = WildFlyContainer::enumeration("3x10,23..26,5x28,34,dev").expect("full DSL");
+        assert!(result[0].is_dev());
+        assert_eq!(result[1].identifier, 100);
+        assert_eq!(result[2].identifier, 100);
+        assert_eq!(result[3].identifier, 100);
+        assert_eq!(result[4].identifier, 230);
+        assert_eq!(result[5].identifier, 240);
+        assert_eq!(result[6].identifier, 250);
+        assert_eq!(result[7].identifier, 260);
+        assert_eq!(result[8].identifier, 280);
+        assert_eq!(result[9].identifier, 280);
+        assert_eq!(result[10].identifier, 280);
+        assert_eq!(result[11].identifier, 280);
+        assert_eq!(result[12].identifier, 280);
+        assert_eq!(result[13].identifier, 340);
+        assert_eq!(14, result.len());
+
+        let result = WildFlyContainer::enumeration("dev").expect("dev only");
+        assert_eq!(1, result.len());
+        assert!(result[0].is_dev());
+
+        let result = WildFlyContainer::enumeration("25").expect("single version");
+        assert_eq!(1, result.len());
+        assert_eq!(250, result[0].identifier);
+
+        let result = WildFlyContainer::enumeration("10,20,30").expect("multiple singles");
+        assert_eq!(3, result.len());
+        assert_eq!(100, result[0].identifier);
+        assert_eq!(200, result[1].identifier);
+        assert_eq!(300, result[2].identifier);
     }
 
     #[test]
