@@ -130,7 +130,7 @@ impl WildFlyContainer {
         if self.is_dev() {
             DEVELOPMENT_VERSION.to_string()
         } else {
-            self.short_version
+            self.short_version.to_string()
         }
     }
 
@@ -522,9 +522,9 @@ mod wildfly_tests {
     #[test]
     fn display_version_regular() {
         let wf = WildFlyContainer::version("25").unwrap();
-        assert_eq!(wf.display_version(), "25.0.1");
+        assert_eq!(wf.display_version(), "25.0");
         let wf = WildFlyContainer::version("26.1").unwrap();
-        assert_eq!(wf.display_version(), "26.1.3");
+        assert_eq!(wf.display_version(), "26.1");
     }
 
     #[test]
