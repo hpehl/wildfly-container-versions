@@ -1,8 +1,7 @@
-//! A library for managing WildFly container versions deployed at
-//! https://hub.docker.com/r/jboss/wildfly and https://quay.io/repository/wildfly/wildfly.
-//!
-//! The library contains a struct describing the WildFly container versions
-//! and functions to parse version enumerations and ranges.
+//! **DEPRECATED:** This crate is no longer maintained.
+//! Use [`wildfly_meta`](https://crates.io/crates/wildfly_meta) instead.
+
+#![allow(deprecated)]
 
 use anyhow::{bail, Result};
 use lazy_static::lazy_static;
@@ -11,7 +10,9 @@ use semver::Version;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
+#[deprecated(since = "39.1.0", note = "This crate is deprecated. Use wildfly_meta instead: https://crates.io/crates/wildfly_meta")]
 pub static DEVELOPMENT_VERSION: &str = "dev";
+#[deprecated(since = "39.1.0", note = "This crate is deprecated. Use wildfly_meta instead: https://crates.io/crates/wildfly_meta")]
 pub static DEVELOPMENT_TAG: &str = "development";
 
 const HTTP_PORT_BASE: u16 = 8000;
@@ -65,6 +66,7 @@ lazy_static! {
 }
 
 /// Describes a WildFly container version
+#[deprecated(since = "39.1.0", note = "This crate is deprecated. Use wildfly_meta instead: https://crates.io/crates/wildfly_meta")]
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub struct WildFlyContainer {
     port_offset: u16,
